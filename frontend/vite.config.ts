@@ -57,5 +57,11 @@
       port: 5177,
       host: true, // Allow external connections (needed for Docker)
       open: false, // Don't open browser automatically in Docker
+      allowedHosts: [
+        'demo-bizmanage.netfortifysolutions.com',
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0'
+      ],
     },
   });
