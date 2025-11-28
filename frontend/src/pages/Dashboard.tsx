@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button';
 
 export function Dashboard() {
   const totalRevenue = revenueData.reduce((sum, item) => sum + item.revenue, 0);
-  const totalExpenses = revenueData.reduce((sum, item) => sum + item.expenses, 0);
+  const totalExpenses = revenueData.reduce((sum, item) => sum + item.expenses, 0);  
   
   return (
     <div className="space-y-6">
