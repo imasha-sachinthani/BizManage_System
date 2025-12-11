@@ -54,7 +54,7 @@
       outDir: 'build',
     },
     server: {
-      port: 5177,
+      port: 5173,
       host: true, // Allow external connections (needed for Docker)
       open: false, // Don't open browser automatically in Docker
       allowedHosts: [

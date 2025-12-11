@@ -3,7 +3,7 @@ import { DashboardChart } from '../components/DashboardChart';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { StatusBadge } from '../components/StatusBadge';
 import { revenueData, statusDistribution, mockInvoices } from '../lib/mockData';
-import { ArrowRight, TrendingUp } from 'lucide-react';
+import { ArrowRight, TrendingUp, FileText, Plus } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 export function Dashboard() {
@@ -67,6 +67,48 @@ export function Dashboard() {
           />
         </div>
       </div>
+
+      {/* Invoice Management Section */}
+      <Card className="shadow-lg border-slate-200">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-[#1A2B4A] rounded-lg">
+              <FileText className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-[#1A2B4A]">Invoice Management</CardTitle>
+              <p className="text-sm text-slate-600 mt-1">Create, manage and track all your invoice</p>
+            </div>
+          </div>
+          <Button className="bg-[#1A2B4A] hover:bg-[#1A2B4A]/90 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            New Invoice
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+              <h4 className="text-lg font-semibold text-[#1A2B4A]">248</h4>
+              <p className="text-sm text-slate-600">Total Invoices</p>
+            </div>
+            <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+              <h4 className="text-lg font-semibold text-emerald-700">186</h4>
+              <p className="text-sm text-slate-600">Paid Invoices</p>
+            </div>
+            <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
+              <h4 className="text-lg font-semibold text-amber-700">62</h4>
+              <p className="text-sm text-slate-600">Pending Invoices</p>
+            </div>
+          </div>
+          
+          <div className="flex justify-center mt-6">
+            <Button variant="outline" className="border-[#1A2B4A] text-[#1A2B4A] hover:bg-[#1A2B4A] hover:text-white">
+              <FileText className="h-4 w-4 mr-2" />
+              Manage All Invoices
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

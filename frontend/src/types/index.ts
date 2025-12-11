@@ -39,14 +39,29 @@ export interface PurchaseOrder {
 
 export interface Client {
   id: string;
+  code: string;
   name: string;
-  email: string;
-  phone: string;
-  address: string;
-  vatNumber: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  taxId?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  creditLimit?: number;
+  paymentTerms?: number;
+  category?: 'VIP' | 'REGULAR' | 'NEW' | 'INACTIVE';
+  isActive: boolean;
+  notes?: string;
   contactPerson?: string;
   businessType?: string;
   status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    invoices: number;
+    payments: number;
+  };
 }
 
 export interface Company {

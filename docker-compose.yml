@@ -1,56 +1,113 @@
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-bizmanage_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bizmanage_pass_2024}
+      POSTGRES_DB: ${DB_NAME:-bizmanage_erp}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bizmanage_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:git 
+      - bizmanage-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - bizmanage-network
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: erp-backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${DB_USER:-bizmanage_user}:${DB_PASSWORD:-bizmanage_pass_2024}@postgres:5432/${DB_NAME:-bizmanage_erp}
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./backend:/app
+      - /app/node_modules
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - bizmanage-network
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: erp-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - bizmanage-network
+
+  # Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: erp-frontend
     ports:
-      - "5177:5177"
+      - "5174:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-development}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
     command: npm run dev
     networks:
       - bizmanage-network
-
-  # Uncomment and configure these services as needed
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3001:3001"
-  #   volumes:
-  #     - ./backend:/app
-  #     - /app/node_modules
-  #   environment:
-  #     - NODE_ENV=development
-  #     - DATABASE_URL=postgresql://postgres:password@db:5432/bizmanage
-  #   depends_on:
-  #     - db
-  #   networks:
-  #     - bizmanage-network
-
-  # db:
-  #   image: postgres:15-alpine
-  #   environment:
-  #     POSTGRES_DB: bizmanage
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: password
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   networks:
-  #     - bizmanage-network
-
-  # redis:
-  #   image: redis:7-alpine
-  #   ports:
-  #     - "6379:6379"
-  #   networks:
-  #     - bizmanage-network
 
 networks:
   bizmanage-network:
@@ -58,3 +115,5 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
+  minio_data:

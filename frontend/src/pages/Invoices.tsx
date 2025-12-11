@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -31,8 +31,10 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { StatusBadge } from '../components/StatusBadge';
-import { mockInvoices, mockClients } from '../lib/mockData';
-import { Invoice } from '../types';
+import { mockClients } from '../lib/mockData';
+import { Invoice, InvoiceItem, Client } from '../types';
+import { invoiceService, CreateInvoiceRequest, UpdateInvoiceRequest } from '../services/invoiceService';
+import { clientService } from '../services/clientService';
 import { Plus, Search, Filter, Download, Eye, Edit, Trash2, Send } from 'lucide-react';
 import {
   Select,
@@ -44,8 +46,9 @@ import {
 import { toast } from 'sonner@2.0.3';
 
 export function Invoices() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
-  const [selectedInvoice, setSelectedInvoice] = useState(mockInvoices[0]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -53,25 +56,96 @@ export function Invoices() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<Invoice | null>(null);
-
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = 
-      invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.client.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
   });
 
-  const handleDelete = () => {
-    if (!deletingInvoice) return;
-    setInvoices(invoices.filter(inv => inv.id !== deletingInvoice.id));
-    setShowDeleteDialog(false);
-    setDeletingInvoice(null);
-    toast.success(`Invoice ${deletingInvoice.invoiceNumber} deleted successfully`);
+  // Load invoices and clients on component mount
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadInvoices();
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, statusFilter, pagination.page]);
+
+  const loadInvoices = async () => {
+    try {
+      setLoading(true);
+      const filters: any = {
+        page: pagination.page,
+        limit: pagination.limit,
+      };
+      
+      if (searchQuery) {
+        filters.search = searchQuery;
+      }
+      
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
+      }
+
+      const response = await invoiceService.getInvoices(filters);
+      setInvoices(response.invoices);
+      setPagination(response.pagination);
+      
+      // Set first invoice as selected if none selected
+      if (response.invoices.length > 0 && !selectedInvoice) {
+        setSelectedInvoice(response.invoices[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load invoices:', error);
+      toast.error('Failed to load invoices. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSendEmail = (invoice: Invoice) => {
-    toast.success(`Invoice ${invoice.invoiceNumber} sent to ${invoice.client}`);
+  const loadClients = async () => {
+    try {
+      const response = await clientService.getClients({ limit: 1000 });
+      setClients(response.clients);
+    } catch (error) {
+      console.error('Failed to load clients:', error);
+    }
+  };
+
+  // Since we're doing server-side filtering, just use invoices directly
+  const filteredInvoices = invoices;
+
+  const handleDelete = async () => {
+    if (!deletingInvoice) return;
+    
+    try {
+      await invoiceService.deleteInvoice(deletingInvoice.id);
+      setInvoices(invoices.filter(inv => inv.id !== deletingInvoice.id));
+      setShowDeleteDialog(false);
+      setDeletingInvoice(null);
+      toast.success(`Invoice ${deletingInvoice.invoiceNumber} deleted successfully`);
+    } catch (error) {
+      console.error('Failed to delete invoice:', error);
+      toast.error('Failed to delete invoice. Please try again.');
+    }
+  };
+
+  const handleSendEmail = async (invoice: Invoice) => {
+    try {
+      await invoiceService.sendInvoice(invoice.id);
+      toast.success(`Invoice ${invoice.invoiceNumber} sent to ${invoice.client}`);
+      loadInvoices(); // Reload to get updated status
+    } catch (error) {
+      console.error('Failed to send invoice:', error);
+      toast.error('Failed to send invoice. Please try again.');
+    }
   };
 
   const handleExport = () => {
@@ -165,7 +239,16 @@ export function Invoices() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvoices.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#1A2B4A]"></div>
+                        Loading invoices...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredInvoices.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                       No invoices found
@@ -200,11 +283,13 @@ export function Invoices() {
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                              <InvoiceDetail 
-                                invoice={selectedInvoice} 
-                                onDownload={handleDownloadPDF}
-                                onSend={handleSendEmail}
-                              />
+                              {selectedInvoice && (
+                                <InvoiceDetail 
+                                  invoice={selectedInvoice} 
+                                  onDownload={handleDownloadPDF}
+                                  onSend={handleSendEmail}
+                                />
+                              )}
                             </DialogContent>
                           </Dialog>
                           <Button 
@@ -252,6 +337,7 @@ export function Invoices() {
             </DialogDescription>
           </DialogHeader>
           <CreateInvoiceForm 
+            clients={clients}
             onClose={() => setShowCreateDialog(false)} 
             onSuccess={(newInvoice) => {
               setInvoices([...invoices, newInvoice]);
@@ -307,34 +393,133 @@ export function Invoices() {
   );
 }
 
-function CreateInvoiceForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: (invoice: Invoice) => void }) {
+function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => void; onSuccess: (invoice: Invoice) => void; clients: Client[] }) {
   const [client, setClient] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('30');
+  const [notes, setNotes] = useState('');
+  const [items, setItems] = useState<InvoiceItem[]>([
+    {
+      id: '1',
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      vatRate: 15,
+      total: 0
+    }
+  ]);
+  const [submitting, setSubmitting] = useState(false);
   
-  const handleSubmit = () => {
-    const selectedClient = mockClients.find(c => c.id === client);
+  const calculateItemTotal = (quantity: number, unitPrice: number, vatRate: number) => {
+    const subtotal = quantity * unitPrice;
+    const vatAmount = subtotal * (vatRate / 100);
+    return subtotal + vatAmount;
+  };
+
+  const addItem = () => {
+    const newItem: InvoiceItem = {
+      id: (Math.random() * 1000).toString(),
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      vatRate: 15,
+      total: 0
+    };
+    setItems([...items, newItem]);
+  };
+
+  const removeItem = (id: string) => {
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== id));
+    }
+  };
+
+  const updateItem = (id: string, field: keyof InvoiceItem, value: string | number) => {
+    setItems(items.map(item => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        if (field === 'quantity' || field === 'unitPrice' || field === 'vatRate') {
+          updatedItem.total = calculateItemTotal(
+            updatedItem.quantity, 
+            updatedItem.unitPrice, 
+            updatedItem.vatRate
+          );
+        }
+        return updatedItem;
+      }
+      return item;
+    }));
+  };
+
+  const calculateTotalAmount = () => {
+    return items.reduce((sum, item) => sum + item.total, 0);
+  };
+
+  const calculateSubtotal = () => {
+    return items.reduce((sum, item) => {
+      const itemSubtotal = item.quantity * item.unitPrice;
+      return sum + itemSubtotal;
+    }, 0);
+  };
+
+  const calculateTaxAmount = () => {
+    return calculateTotalAmount() - calculateSubtotal();
+  };
+  
+  const handleSubmit = async () => {
+    const selectedClient = clients.find(c => c.id === client);
     if (!selectedClient || !dueDate) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    const newInvoice: Invoice = {
-      id: (Math.random() * 1000).toString(),
-      invoiceNumber: `INV-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-      client: selectedClient.name,
-      amount: 1000000,
-      status: 'draft',
-      date: date,
-      dueDate: dueDate,
-      items: []
-    };
+    const validItems = items.filter(item => 
+      item.description.trim() !== '' && item.quantity > 0 && item.unitPrice > 0
+    );
 
-    onSuccess(newInvoice);
+    if (validItems.length === 0) {
+      toast.error('Please add at least one valid item');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const subtotal = calculateSubtotal();
+      const taxAmount = calculateTaxAmount();
+      const totalAmount = calculateTotalAmount();
+
+      const invoiceData: CreateInvoiceRequest = {
+        clientId: client,
+        amount: subtotal,
+        taxAmount: taxAmount,
+        discountAmount: 0,
+        dueDate: dueDate,
+        notes: notes,
+        items: validItems.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          taxRate: item.vatRate,
+        })),
+        status: 'DRAFT',
+      };
+
+      const newInvoice = await invoiceService.createInvoice(invoiceData);
+      onSuccess(newInvoice);
+      toast.success('Invoice created successfully');
+    } catch (error) {
+      console.error('Failed to create invoice:', error);
+      toast.error('Failed to create invoice. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* Invoice Header Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Client *</Label>
@@ -343,7 +528,7 @@ function CreateInvoiceForm({ onClose, onSuccess }: { onClose: () => void; onSucc
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
             <SelectContent>
-              {mockClients.map(c => (
+              {clients.map(c => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
             </SelectContent>
@@ -362,7 +547,7 @@ function CreateInvoiceForm({ onClose, onSuccess }: { onClose: () => void; onSucc
         
         <div className="space-y-2">
           <Label>Payment Terms</Label>
-          <Select defaultValue="30">
+          <Select value={paymentTerms} onValueChange={setPaymentTerms}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -374,6 +559,144 @@ function CreateInvoiceForm({ onClose, onSuccess }: { onClose: () => void; onSucc
             </SelectContent>
           </Select>
         </div>
+        
+        <div className="space-y-2 md:col-span-2">
+          <Label>Notes</Label>
+          <Input 
+            placeholder="Additional notes or terms..."
+            value={notes} 
+            onChange={(e) => setNotes(e.target.value)} 
+          />
+        </div>
+      </div>
+
+      {/* Invoice Items Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Invoice Items</h3>
+          <Button 
+            type="button"
+            onClick={addItem}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Item
+          </Button>
+        </div>
+
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="w-[300px]">Description *</TableHead>
+                <TableHead className="w-[100px] text-center">Qty *</TableHead>
+                <TableHead className="w-[140px] text-right">Unit Price (Rs) *</TableHead>
+                <TableHead className="w-[100px] text-center">VAT %</TableHead>
+                <TableHead className="w-[140px] text-right">Total (Rs)</TableHead>
+                <TableHead className="w-[80px] text-center">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item, index) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <Input
+                      placeholder="Enter item description..."
+                      value={item.description}
+                      onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-center"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unitPrice}
+                      onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-right"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select 
+                      value={item.vatRate.toString()} 
+                      onValueChange={(value) => updateItem(item.id, 'vatRate', parseInt(value))}
+                    >
+                      <SelectTrigger className="border-0 focus:ring-0 focus:ring-offset-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">0%</SelectItem>
+                        <SelectItem value="8">8%</SelectItem>
+                        <SelectItem value="15">15%</SelectItem>
+                        <SelectItem value="20">20%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    Rs {item.total.toLocaleString('en-LK', { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length === 1}
+                      className="hover:bg-red-50 hover:text-red-600 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Total Summary */}
+        <div className="flex justify-end">
+          <div className="bg-slate-50 p-4 rounded-lg min-w-[300px]">
+            <div className="space-y-2">
+              {(() => {
+                const total = calculateTotalAmount();
+                const subtotal = items.reduce((sum, item) => {
+                  const itemSubtotal = item.quantity * item.unitPrice;
+                  return sum + itemSubtotal;
+                }, 0);
+                const totalVat = total - subtotal;
+                
+                return (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Subtotal:</span>
+                      <span>Rs {subtotal.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">VAT:</span>
+                      <span>Rs {totalVat.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-semibold border-t pt-2">
+                      <span>Total Amount:</span>
+                      <span className="text-[#1A2B4A]">Rs {total.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end gap-3">
@@ -382,9 +705,10 @@ function CreateInvoiceForm({ onClose, onSuccess }: { onClose: () => void; onSucc
         </Button>
         <Button 
           onClick={handleSubmit}
+          disabled={submitting}
           className="bg-[#1A2B4A] hover:bg-[#0F1729]"
         >
-          Create Invoice
+          {submitting ? 'Creating...' : 'Create Invoice'}
         </Button>
       </div>
     </div>
@@ -395,10 +719,102 @@ function EditInvoiceForm({ invoice, onClose, onSuccess }: { invoice: Invoice | n
   if (!invoice) return null;
   
   const [status, setStatus] = useState(invoice.status);
+  const [items, setItems] = useState<InvoiceItem[]>(invoice.items || []);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    const updatedInvoice = { ...invoice, status };
-    onSuccess(updatedInvoice);
+  const calculateItemTotal = (quantity: number, unitPrice: number, vatRate: number) => {
+    const subtotal = quantity * unitPrice;
+    const vatAmount = subtotal * (vatRate / 100);
+    return subtotal + vatAmount;
+  };
+
+  const addItem = () => {
+    const newItem: InvoiceItem = {
+      id: (Math.random() * 1000).toString(),
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      vatRate: 15,
+      total: 0
+    };
+    setItems([...items, newItem]);
+  };
+
+  const removeItem = (id: string) => {
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== id));
+    }
+  };
+
+  const updateItem = (id: string, field: keyof InvoiceItem, value: string | number) => {
+    setItems(items.map(item => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        if (field === 'quantity' || field === 'unitPrice' || field === 'vatRate') {
+          updatedItem.total = calculateItemTotal(
+            updatedItem.quantity, 
+            updatedItem.unitPrice, 
+            updatedItem.vatRate
+          );
+        }
+        return updatedItem;
+      }
+      return item;
+    }));
+  };
+
+  const calculateTotalAmount = () => {
+    return items.reduce((sum, item) => sum + item.total, 0);
+  };
+
+  const calculateSubtotal = () => {
+    return items.reduce((sum, item) => {
+      const itemSubtotal = item.quantity * item.unitPrice;
+      return sum + itemSubtotal;
+    }, 0);
+  };
+
+  const calculateTaxAmount = () => {
+    return calculateTotalAmount() - calculateSubtotal();
+  };
+
+  const handleSubmit = async () => {
+    const validItems = items.filter(item => 
+      item.description.trim() !== '' && item.quantity > 0 && item.unitPrice > 0
+    );
+
+    if (validItems.length === 0) {
+      toast.error('Please add at least one valid item');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const subtotal = calculateSubtotal();
+      const taxAmount = calculateTaxAmount();
+
+      const updateData: UpdateInvoiceRequest = {
+        amount: subtotal,
+        taxAmount: taxAmount,
+        status: status as any,
+        items: validItems.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          taxRate: item.vatRate,
+        })),
+      };
+
+      const updatedInvoice = await invoiceService.updateInvoice(invoice.id, updateData);
+      onSuccess(updatedInvoice);
+      toast.success('Invoice updated successfully');
+    } catch (error) {
+      console.error('Failed to update invoice:', error);
+      toast.error('Failed to update invoice. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -426,6 +842,147 @@ function EditInvoiceForm({ invoice, onClose, onSuccess }: { invoice: Invoice | n
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label>Invoice Date</Label>
+          <Input value={invoice.date} disabled />
+        </div>
+      </div>
+
+      {/* Invoice Items Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Invoice Items</h3>
+          <Button 
+            type="button"
+            onClick={addItem}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Item
+          </Button>
+        </div>
+
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="w-[300px]">Description *</TableHead>
+                <TableHead className="w-[100px] text-center">Qty *</TableHead>
+                <TableHead className="w-[140px] text-right">Unit Price (Rs) *</TableHead>
+                <TableHead className="w-[100px] text-center">VAT %</TableHead>
+                <TableHead className="w-[140px] text-right">Total (Rs)</TableHead>
+                <TableHead className="w-[80px] text-center">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                    No items added yet. Click "Add Item" to start.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Input
+                        placeholder="Enter item description..."
+                        value={item.description}
+                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                        className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                        className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-center"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unitPrice}
+                        onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                        className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-right"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select 
+                        value={item.vatRate.toString()} 
+                        onValueChange={(value) => updateItem(item.id, 'vatRate', parseInt(value))}
+                      >
+                        <SelectTrigger className="border-0 focus:ring-0 focus:ring-offset-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0%</SelectItem>
+                          <SelectItem value="8">8%</SelectItem>
+                          <SelectItem value="15">15%</SelectItem>
+                          <SelectItem value="20">20%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      Rs {item.total.toLocaleString('en-LK', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(item.id)}
+                        disabled={items.length === 1}
+                        className="hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Total Summary */}
+        <div className="flex justify-end">
+          <div className="bg-slate-50 p-4 rounded-lg min-w-[300px]">
+            <div className="space-y-2">
+              {(() => {
+                const total = calculateTotalAmount();
+                const subtotal = items.reduce((sum, item) => {
+                  const itemSubtotal = item.quantity * item.unitPrice;
+                  return sum + itemSubtotal;
+                }, 0);
+                const totalVat = total - subtotal;
+                
+                return (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Subtotal:</span>
+                      <span>Rs {subtotal.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">VAT:</span>
+                      <span>Rs {totalVat.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-semibold border-t pt-2">
+                      <span>Total Amount:</span>
+                      <span className="text-[#1A2B4A]">Rs {total.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end gap-3">
@@ -434,9 +991,10 @@ function EditInvoiceForm({ invoice, onClose, onSuccess }: { invoice: Invoice | n
         </Button>
         <Button 
           onClick={handleSubmit}
+          disabled={submitting}
           className="bg-[#1A2B4A] hover:bg-[#0F1729]"
         >
-          Save Changes
+          {submitting ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </div>

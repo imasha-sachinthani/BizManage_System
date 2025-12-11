@@ -1,0 +1,1038 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  password          String
+  firstName         String
+  lastName          String
+  phone             String?
+  avatar            String?
+  role              Role      @relation(fields: [roleId], references: [id])
+  roleId            String
+  isActive          Boolean   @default(true)
+  lastLogin         DateTime?
+  otpEnabled        Boolean   @default(false)
+  otpSecret         String?
+  companyId         String?
+  company           Company?  @relation(fields: [companyId], references: [id])
+  
+  // Relationships
+  createdInvoices   Invoice[] @relation("CreatedBy")
+  approvedInvoices  Invoice[] @relation("ApprovedBy")
+  loginLogs         LoginLog[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([email, username])
+  @@index([companyId])
+  @@map("users")
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  permissions Permission[]
+  users       User[]
+  isSystem    Boolean      @default(false)
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  module      String   // e.g., 'invoices', 'payments', 'reports'
+  action      String   // e.g., 'create', 'read', 'update', 'delete', 'approve'
+  roles       Role[]
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model LoginLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress   String
+  userAgent   String
+  location    String?
+  success     Boolean
+  createdAt   DateTime @default(now())
+  
+  @@index([userId, createdAt])
+  @@map("login_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String   // CREATE, UPDATE, DELETE, APPROVE, etc.
+  module      String   // invoices, payments, etc.
+  recordId    String
+  oldData     Json?
+  newData     Json?
+  ipAddress   String
+  createdAt   DateTime @default(now())
+  
+  @@index([userId, module, createdAt])
+  @@index([recordId])
+  @@map("audit_logs")
+}
+
+// ============================================
+// MULTI-COMPANY SETUP
+// ============================================
+
+model Company {
+  id                String    @id @default(cuid())
+  name              String
+  logo              String?
+  taxId             String?
+  registrationNo    String?
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  country           String?
+  currency          String    @default("LKR")
+  fiscalYearStart   Int       @default(1) // Month (1-12)
+  isActive          Boolean   @default(true)
+  
+  // Relationships
+  users             User[]
+  clients           Client[]
+  suppliers         Supplier[]
+  invoices          Invoice[]
+  purchases         Purchase[]
+  payments          Payment[]
+  expenses          Expense[]
+  assets            Asset[]
+  products          Product[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([name])
+  @@map("companies")
+}
+
+// ============================================
+// CLIENT & CRM
+// ============================================
+
+model Client {
+  id                String    @id @default(cuid())
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id])
+  
+  code              String    @unique
+  name              String
+  email             String?
+  phone             String?
+  mobile            String?
+  taxId             String?
+  address           String?
+  city              String?
+  country           String?
+  
+  // Financial
+  creditLimit       Decimal   @default(0) @db.Decimal(15, 2)
+  paymentTerms      Int       @default(30) // Days
+  category          ClientCategory @default(REGULAR)
+  
+  // Status
+  isActive          Boolean   @default(true)
+  notes             String?
+  
+  // Relationships
+  invoices          Invoice[]
+  payments          Payment[] @relation("ClientPayments")
+  contacts          ClientContact[]
+  interactions      ClientInteraction[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([companyId, code])
+  @@index([name])
+  @@map("clients")
+}
+
+enum ClientCategory {
+  VIP
+  REGULAR
+  NEW
+  INACTIVE
+}
+
+model ClientContact {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  designation String?
+  email       String?
+  phone       String?
+  mobile      String?
+  isPrimary   Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([clientId])
+  @@map("client_contacts")
+}
+
+model ClientInteraction {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        InteractionType
+  subject     String
+  notes       String?
+  nextFollowUp DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([clientId, createdAt])
+  @@map("client_interactions")
+}
+
+enum InteractionType {
+  CALL
+  EMAIL
+  MEETING
+  VISIT
+  OTHER
+}
+
+// ============================================
+// SUPPLIERS & PURCHASES
+// ============================================
+
+model Supplier {
+  id                String    @id @default(cuid())
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id])
+  
+  code              String    @unique
+  name              String
+  email             String?
+  phone             String?
+  taxId             String?
+  address           String?
+  city              String?
+  country           String?
+  
+  // Terms
+  paymentTerms      Int       @default(30) // Days
+  currency          String    @default("USD")
+  leadTime          Int       @default(30) // Days
+  
+  // Performance
+  rating            Decimal?  @db.Decimal(3, 2) // 0.00 to 5.00
+  
+  isActive          Boolean   @default(true)
+  notes             String?
+  
+  // Relationships
+  purchases         Purchase[]
+  payments          Payment[] @relation("SupplierPayments")
+  cusdecs           Cusdec[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([companyId, code])
+  @@map("suppliers")
+}
+
+model Purchase {
+  id                String    @id @default(cuid())
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id])
+  
+  poNumber          String    @unique
+  supplierId        String
+  supplier          Supplier  @relation(fields: [supplierId], references: [id])
+  
+  poDate            DateTime  @default(now())
+  expectedDate      DateTime?
+  receivedDate      DateTime?
+  
+  currency          String    @default("USD")
+  exchangeRate      Decimal   @default(1) @db.Decimal(10, 4)
+  
+  subtotal          Decimal   @db.Decimal(15, 2)
+  taxAmount         Decimal   @default(0) @db.Decimal(15, 2)
+  totalAmount       Decimal   @db.Decimal(15, 2)
+  
+  status            PurchaseStatus @default(PENDING)
+  
+  notes             String?
+  terms             String?
+  
+  // Relationships
+  items             PurchaseItem[]
+  payments          Payment[]
+  cusdec            Cusdec?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([companyId, poNumber])
+  @@index([supplierId])
+  @@index([status])
+  @@map("purchases")
+}
+
+enum PurchaseStatus {
+  PENDING
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseItem {
+  id              String    @id @default(cuid())
+  purchaseId      String
+  purchase        Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+  
+  description     String
+  quantity        Decimal   @db.Decimal(15, 3)
+  unitPrice       Decimal   @db.Decimal(15, 4)
+  totalPrice      Decimal   @db.Decimal(15, 2)
+  
+  receivedQty     Decimal   @default(0) @db.Decimal(15, 3)
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([purchaseId])
+  @@map("purchase_items")
+}
+
+// ============================================
+// PRODUCTS & INVENTORY
+// ============================================
+
+model Product {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  
+  sku             String    @unique
+  name            String
+  description     String?
+  category        String?
+  unit            String    @default("PCS")
+  
+  // Pricing
+  costPrice       Decimal   @default(0) @db.Decimal(15, 4)
+  sellingPrice    Decimal   @default(0) @db.Decimal(15, 4)
+  
+  // Inventory
+  currentStock    Decimal   @default(0) @db.Decimal(15, 3)
+  reorderLevel    Decimal   @default(0) @db.Decimal(15, 3)
+  
+  // HS Code for imports
+  hsCode          String?
+  
+  isActive        Boolean   @default(true)
+  
+  // Relationships
+  purchaseItems   PurchaseItem[]
+  invoiceItems    InvoiceItem[]
+  stockMovements  StockMovement[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId, sku])
+  @@index([name])
+  @@map("products")
+}
+
+model StockMovement {
+  id              String    @id @default(cuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  
+  type            MovementType
+  quantity        Decimal   @db.Decimal(15, 3)
+  referenceType   String?   // 'INVOICE', 'PURCHASE', 'ADJUSTMENT'
+  referenceId     String?
+  
+  notes           String?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([productId, createdAt])
+  @@map("stock_movements")
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  RETURN
+}
+
+// ============================================
+// INVOICES & SALES
+// ============================================
+
+model Invoice {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  
+  invoiceNumber   String    @unique
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  
+  invoiceDate     DateTime  @default(now())
+  dueDate         DateTime
+  
+  subtotal        Decimal   @db.Decimal(15, 2)
+  taxAmount       Decimal   @default(0) @db.Decimal(15, 2)
+  discountAmount  Decimal   @default(0) @db.Decimal(15, 2)
+  totalAmount     Decimal   @db.Decimal(15, 2)
+  paidAmount      Decimal   @default(0) @db.Decimal(15, 2)
+  balanceAmount   Decimal   @db.Decimal(15, 2)
+  
+  status          InvoiceStatus @default(DRAFT)
+  
+  notes           String?
+  terms           String?
+  
+  // Audit
+  createdById     String
+  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
+  approvedById    String?
+  approvedBy      User?     @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  
+  // Relationships
+  items           InvoiceItem[]
+  payments        Payment[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId, invoiceNumber])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceItem {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+  
+  description     String
+  quantity        Decimal   @db.Decimal(15, 3)
+  unitPrice       Decimal   @db.Decimal(15, 4)
+  totalPrice      Decimal   @db.Decimal(15, 2)
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+model Payment {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  
+  paymentNumber   String    @unique
+  paymentDate     DateTime  @default(now())
+  amount          Decimal   @db.Decimal(15, 2)
+  
+  type            PaymentType
+  method          PaymentMethod
+  
+  // Relations
+  clientId        String?
+  client          Client?   @relation("ClientPayments", fields: [clientId], references: [id])
+  supplierId      String?
+  supplier        Supplier? @relation("SupplierPayments", fields: [supplierId], references: [id])
+  
+  invoiceId       String?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+  purchaseId      String?
+  purchase        Purchase? @relation(fields: [purchaseId], references: [id])
+  
+  // Details
+  reference       String?   // Cheque no, transaction ID, etc.
+  bankAccount     String?
+  
+  notes           String?
+  status          PaymentStatus @default(COMPLETED)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId, paymentNumber])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([status])
+  @@map("payments")
+}
+
+enum PaymentType {
+  RECEIVED
+  PAID
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  CARD
+  ONLINE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  BOUNCED
+}
+
+// ============================================
+// CUSDEC (CUSTOMS DECLARATIONS)
+// ============================================
+
+model Cusdec {
+  id              String    @id @default(cuid())
+  companyId       String
+  
+  cusdecNumber    String    @unique
+  importDate      DateTime
+  
+  supplierId      String
+  supplier        Supplier  @relation(fields: [supplierId], references: [id])
+  purchaseId      String?   @unique
+  purchase        Purchase? @relation(fields: [purchaseId], references: [id])
+  
+  // Financial Details
+  fobValue        Decimal   @db.Decimal(15, 2)
+  freightCharges  Decimal   @default(0) @db.Decimal(15, 2)
+  insurance       Decimal   @default(0) @db.Decimal(15, 2)
+  cifValue        Decimal   @db.Decimal(15, 2)
+  
+  customsDuty     Decimal   @default(0) @db.Decimal(15, 2)
+  vatAmount       Decimal   @default(0) @db.Decimal(15, 2)
+  nbtAmount       Decimal   @default(0) @db.Decimal(15, 2)
+  otherCharges    Decimal   @default(0) @db.Decimal(15, 2)
+  totalLandedCost Decimal   @db.Decimal(15, 2)
+  
+  currency        String    @default("USD")
+  exchangeRate    Decimal   @db.Decimal(10, 4)
+  
+  // Logistics
+  containerNo     String?
+  blNumber        String?
+  port            String?
+  clearanceDate   DateTime?
+  
+  status          CusdecStatus @default(PENDING)
+  
+  // Documents
+  documents       CusdecDocument[]
+  items           CusdecItem[]
+  
+  notes           String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([cusdecNumber])
+  @@index([supplierId])
+  @@index([status])
+  @@map("cusdecs")
+}
+
+enum CusdecStatus {
+  PENDING
+  CLEARED
+  ISSUES
+}
+
+model CusdecItem {
+  id              String    @id @default(cuid())
+  cusdecId        String
+  cusdec          Cusdec    @relation(fields: [cusdecId], references: [id], onDelete: Cascade)
+  
+  hsCode          String
+  description     String
+  quantity        Decimal   @db.Decimal(15, 3)
+  unitValue       Decimal   @db.Decimal(15, 4)
+  totalValue      Decimal   @db.Decimal(15, 2)
+  
+  dutyRate        Decimal?  @db.Decimal(5, 2)
+  dutyAmount      Decimal?  @db.Decimal(15, 2)
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([cusdecId])
+  @@map("cusdec_items")
+}
+
+model CusdecDocument {
+  id              String    @id @default(cuid())
+  cusdecId        String
+  cusdec          Cusdec    @relation(fields: [cusdecId], references: [id], onDelete: Cascade)
+  
+  fileName        String
+  fileType        String
+  fileUrl         String
+  fileSize        Int
+  
+  uploadedAt      DateTime  @default(now())
+  
+  @@index([cusdecId])
+  @@map("cusdec_documents")
+}
+
+// ============================================
+// TENDERS & QUOTATIONS
+// ============================================
+
+model Tender {
+  id              String    @id @default(cuid())
+  
+  tenderNumber    String    @unique
+  title           String
+  clientName      String
+  
+  // Dates
+  submissionDate  DateTime
+  openingDate     DateTime?
+  validityDate    DateTime?
+  
+  // Bid Security
+  bidSecurityReq  Boolean   @default(false)
+  bidSecAmount    Decimal?  @db.Decimal(15, 2)
+  bidSecType      String?   // PCA1, Bank Guarantee, etc.
+  bidSecBankRef   String?
+  bidSecIssueDate DateTime?
+  bidSecExpiryDate DateTime?
+  bidSecBank      String?
+  
+  // Performance Security
+  perfSecurityReq Boolean   @default(false)
+  perfSecAmount   Decimal?  @db.Decimal(15, 2)
+  perfSecType     String?
+  perfSecBankRef  String?
+  perfSecIssueDate DateTime?
+  perfSecExpiryDate DateTime?
+  perfSecBank     String?
+  
+  // Tender Details
+  estimatedValue  Decimal?  @db.Decimal(15, 2)
+  quotedValue     Decimal?  @db.Decimal(15, 2)
+  
+  status          TenderStatus @default(PREPARING)
+  
+  // Documents
+  documents       TenderDocument[]
+  
+  notes           String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([tenderNumber])
+  @@index([status])
+  @@index([submissionDate])
+  @@map("tenders")
+}
+
+enum TenderStatus {
+  PREPARING
+  SUBMITTED
+  UNDER_EVALUATION
+  WON
+  LOST
+  CANCELLED
+}
+
+model TenderDocument {
+  id              String    @id @default(cuid())
+  tenderId        String
+  tender          Tender    @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  
+  documentType    String    // Quotation, Technical, Financial, etc.
+  fileName        String
+  fileUrl         String
+  fileSize        Int
+  
+  uploadedAt      DateTime  @default(now())
+  
+  @@index([tenderId])
+  @@map("tender_documents")
+}
+
+// ============================================
+// EXPENSES & PETTY CASH
+// ============================================
+
+model Expense {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  
+  expenseNumber   String    @unique
+  date            DateTime  @default(now())
+  category        ExpenseCategory
+  customCategory  String?   // For user-defined categories
+  
+  amount          Decimal   @db.Decimal(15, 2)
+  description     String
+  
+  paymentMethod   PaymentMethod
+  reference       String?
+  
+  // Receipt
+  receiptUrl      String?
+  
+  // Approval
+  status          ExpenseStatus @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  notes           String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId, category])
+  @@index([status])
+  @@map("expenses")
+}
+
+enum ExpenseCategory {
+  RENT
+  UTILITIES
+  OFFICE_SUPPLIES
+  MARKETING
+  TRAVEL
+  SALARIES
+  INSTALLATION
+  THIRD_PARTY_MATERIALS
+  PETTY_CASH
+  PROFESSIONAL_FEES
+  INSURANCE
+  MAINTENANCE
+  OTHER
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+// ============================================
+// ASSETS
+// ============================================
+
+model Asset {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  
+  assetNumber     String    @unique
+  name            String
+  category        AssetCategory
+  
+  // Purchase Details
+  purchaseDate    DateTime
+  purchasePrice   Decimal   @db.Decimal(15, 2)
+  supplier        String?
+  invoiceRef      String?
+  
+  // Depreciation
+  depreciationMethod DepreciationMethod @default(STRAIGHT_LINE)
+  usefulLife      Int       // Years
+  salvageValue    Decimal   @default(0) @db.Decimal(15, 2)
+  currentValue    Decimal   @db.Decimal(15, 2)
+  
+  // Assignment
+  assignedTo      String?
+  location        String?
+  
+  // Maintenance
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  
+  // Insurance
+  insurancePolicy String?
+  insuranceExpiry DateTime?
+  
+  // Status
+  status          AssetStatus @default(ACTIVE)
+  
+  // Details (JSON for flexibility)
+  specifications  Json?     // Model, serial, IMEI, registration, etc.
+  
+  notes           String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId, category])
+  @@index([status])
+  @@map("assets")
+}
+
+enum AssetCategory {
+  BUILDING
+  VEHICLE
+  COMPUTER
+  PHONE
+  FURNITURE
+  MACHINERY
+  EQUIPMENT
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  MAINTENANCE
+  DISPOSED
+  SOLD
+}
+
+enum DepreciationMethod {
+  STRAIGHT_LINE
+  REDUCING_BALANCE
+}
+
+// ============================================
+// RETURNS
+// ============================================
+
+model Return {
+  id              String    @id @default(cuid())
+  
+  returnNumber    String    @unique
+  returnDate      DateTime  @default(now())
+  type            ReturnType
+  
+  // Relations
+  invoiceId       String?
+  purchaseId      String?
+  
+  reason          String
+  status          ReturnStatus @default(PENDING)
+  
+  // Financial
+  totalAmount     Decimal   @db.Decimal(15, 2)
+  refundAmount    Decimal   @default(0) @db.Decimal(15, 2)
+  
+  // Credit/Debit Note
+  creditNoteNo    String?
+  creditNoteDate  DateTime?
+  
+  notes           String?
+  
+  items           ReturnItem[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([returnNumber])
+  @@index([type, status])
+  @@map("returns")
+}
+
+enum ReturnType {
+  SALES_RETURN
+  PURCHASE_RETURN
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model ReturnItem {
+  id              String    @id @default(cuid())
+  returnId        String
+  return          Return    @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  
+  productId       String?
+  description     String
+  quantity        Decimal   @db.Decimal(15, 3)
+  unitPrice       Decimal   @db.Decimal(15, 4)
+  totalPrice      Decimal   @db.Decimal(15, 2)
+  
+  defectType      String?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([returnId])
+  @@map("return_items")
+}
+
+// ============================================
+// NOTIFICATIONS & ALERTS
+// ============================================
+
+model Notification {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type            NotificationType
+  title           String
+  message         String
+  
+  // Reference
+  referenceType   String?   // INVOICE, PAYMENT, TENDER, etc.
+  referenceId     String?
+  
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  PAYMENT_DUE
+  PAYMENT_OVERDUE
+  PAYMENT_RECEIVED
+  INVOICE_APPROVED
+  PO_PENDING
+  DELIVERY_DUE
+  TENDER_DEADLINE
+  BID_SECURITY_EXPIRING
+  PERF_SECURITY_EXPIRING
+  LOW_STOCK
+  SYSTEM_ALERT
+  OTHER
+}
+
+// ============================================
+// FINANCIAL REPORTS & VAT
+// ============================================
+
+model VATReport {
+  id              String    @id @default(cuid())
+  
+  reportNumber    String    @unique
+  period          String    // Q1-2024, Q2-2024, etc.
+  startDate       DateTime
+  endDate         DateTime
+  
+  // VAT Calculations
+  inputVAT        Decimal   @db.Decimal(15, 2)
+  outputVAT       Decimal   @db.Decimal(15, 2)
+  netVAT          Decimal   @db.Decimal(15, 2)
+  
+  status          ReportStatus @default(DRAFT)
+  submittedDate   DateTime?
+  
+  // File
+  reportFileUrl   String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([period])
+  @@map("vat_reports")
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+// ============================================
+// BACKUP LOGS
+// ============================================
+
+model BackupLog {
+  id              String    @id @default(cuid())
+  backupDate      DateTime  @default(now())
+  type            BackupType
+  
+  fileSize        BigInt
+  fileName        String
+  fileUrl         String
+  
+  status          BackupStatus
+  errorMessage    String?
+  
+  @@index([backupDate, status])
+  @@map("backup_logs")
+}
+
+enum BackupType {
+  DAILY
+  MONTHLY
+  MANUAL
+}
+
+enum BackupStatus {
+  SUCCESS
+  FAILED
+  IN_PROGRESS
+}
