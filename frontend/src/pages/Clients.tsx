@@ -39,7 +39,7 @@ import {
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Client } from '../types';
-import { clientService, CreateClientData, UpdateClientData } from '../services/clients';
+import { clientService, CreateClientRequest as CreateClientData, UpdateClientRequest as UpdateClientData } from '../services/clientService';
 import { 
   Plus, 
   Search, 
@@ -50,10 +50,12 @@ import {
   MapPin,
   FileText,
   User,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDebounce } from '../hooks/useDebounce';
+import { ClientDetail } from '../components/ClientDetail';
 
 export function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -62,6 +64,7 @@ export function Clients() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -229,6 +232,11 @@ export function Clients() {
   const openDeleteDialog = (client: Client) => {
     setSelectedClient(client);
     setIsDeleteDialogOpen(true);
+  };
+
+  const openViewDialog = (client: Client) => {
+    setSelectedClient(client);
+    setIsViewDialogOpen(true);
   };
 
   const resetForm = () => {
@@ -443,8 +451,17 @@ export function Clients() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openEditDialog(client)}
+                            onClick={() => openViewDialog(client)}
                             className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditDialog(client)}
+                            className="hover:bg-amber-50 hover:text-amber-600 transition-colors"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -781,6 +798,16 @@ export function Clients() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Client Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Details</DialogTitle>
+          </DialogHeader>
+          {selectedClient && <ClientDetail client={selectedClient} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -18,7 +18,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:git 
+    networks:
       - bizmanage-network
 
   # Redis Cache
@@ -98,7 +98,7 @@ services:
       dockerfile: Dockerfile
     container_name: erp-frontend
     ports:
-      - "5174:5173"
+      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules

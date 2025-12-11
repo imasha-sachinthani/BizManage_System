@@ -123,3 +123,35 @@
     transform: scale(1.02);
   }
 }
+
+/* Print Styles */
+@media print {
+  body {
+    @apply bg-white;
+  }
+  
+  .no-print,
+  nav,
+  aside,
+  header,
+  footer,
+  .sidebar,
+  button,
+  .hidden.print\:block {
+    display: none !important;
+  }
+  
+  .print\:block {
+    display: block !important;
+  }
+  
+  .print-invoice {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}

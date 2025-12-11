@@ -1,5 +1,9 @@
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api';
 
+// Debug: Log the API base URL
+console.log('🔧 API Base URL:', API_BASE_URL);
+console.log('🔧 Environment:', (import.meta as any).env);
+
 // Generic API response type
 export interface ApiResponse<T = any> {
   success: boolean;

@@ -5,9 +5,12 @@ import { TopBar } from './components/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Invoices } from './pages/Invoices';
 import { Purchases } from './pages/Purchases';
+import { Returns } from './pages/Returns';
 import { Reports } from './pages/Reports';
 import { Payments } from './pages/Payments';
 import { Tenders } from './pages/Tenders';
+import { LoginSessions } from './pages/LoginSessions';
+import Cusdecs from './pages/Cusdec';
 import { Clients } from './pages/Clients';
 import { Companies } from './pages/Companies';
 import { Settings } from './pages/Settings';
@@ -78,12 +81,16 @@ export default function App() {
         return 'Invoices';
       case 'purchases':
         return 'Purchase Orders';
+      case 'returns':
+        return 'Returns Management';
       case 'reports':
         return 'VAT Reports';
       case 'payments':
         return 'Payments';
       case 'tenders':
         return 'Tenders';
+      case 'login-sessions':
+        return 'Login Sessions';
       case 'clients':
         return 'Client Management';
       case 'companies':
@@ -103,13 +110,17 @@ export default function App() {
         return <Invoices />;
       case 'purchases':
         return <Purchases />;
+      case 'returns':
+        return <Returns />;
       case 'reports':
         return <Reports />;
       case 'payments':
         return <Payments />;
       case 'tenders':
         return <Tenders />;
-      case 'clients':
+      case 'login-sessions':
+        return <LoginSessions />;      case 'cusdec':
+        return <Cusdecs />;      case 'clients':
         return <Clients />;
       case 'companies':
         return <Companies />;

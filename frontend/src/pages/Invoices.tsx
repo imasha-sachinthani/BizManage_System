@@ -31,11 +31,12 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { StatusBadge } from '../components/StatusBadge';
+import { InvoicePrint } from '../components/InvoicePrint';
 import { mockClients } from '../lib/mockData';
 import { Invoice, InvoiceItem, Client } from '../types';
 import { invoiceService, CreateInvoiceRequest, UpdateInvoiceRequest } from '../services/invoiceService';
 import { clientService } from '../services/clientService';
-import { Plus, Search, Filter, Download, Eye, Edit, Trash2, Send } from 'lucide-react';
+import { Plus, Search, Filter, Download, Eye, Edit, Trash2, Send, Printer } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -154,6 +155,16 @@ export function Invoices() {
 
   const handleDownloadPDF = (invoice: Invoice) => {
     toast.success(`Invoice ${invoice.invoiceNumber} downloaded as PDF`);
+  };
+
+  const handlePrintInvoice = (invoice: Invoice) => {
+    // Set the invoice to be printed
+    setSelectedInvoice(invoice);
+    
+    // Wait for next render cycle to ensure component is mounted
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   const openEditDialog = (invoice: Invoice) => {
@@ -288,6 +299,7 @@ export function Invoices() {
                                   invoice={selectedInvoice} 
                                   onDownload={handleDownloadPDF}
                                   onSend={handleSendEmail}
+                                  onPrint={handlePrintInvoice}
                                 />
                               )}
                             </DialogContent>
@@ -299,6 +311,15 @@ export function Invoices() {
                             className="hover:bg-amber-50 hover:text-amber-600 transition-colors"
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handlePrintInvoice(invoice)}
+                            className="hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                            title="Print Invoice"
+                          >
+                            <Printer className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -389,6 +410,22 @@ export function Invoices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden Print Component */}
+      {selectedInvoice && (
+        <div className="hidden print:block">
+          <InvoicePrint 
+            invoice={selectedInvoice}
+            company={{
+              name: 'Your Company Name',
+              address: '123 Business Street, Colombo',
+              phone: '+94 11 234 5678',
+              email: 'info@yourcompany.com',
+              taxId: 'TAX-12345',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -410,6 +447,11 @@ function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => voi
     }
   ]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Debug: Log clients when component mounts or clients change
+  useEffect(() => {
+    console.log('CreateInvoiceForm - Available clients:', clients);
+  }, [clients]);
   
   const calculateItemTotal = (quantity: number, unitPrice: number, vatRate: number) => {
     const subtotal = quantity * unitPrice;
@@ -527,10 +569,14 @@ function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => voi
             <SelectTrigger>
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
-            <SelectContent>
-              {clients.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
+            <SelectContent className="z-[100]">
+              {clients.length === 0 ? (
+                <SelectItem value="no-clients" disabled>No clients available</SelectItem>
+              ) : (
+                clients.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -551,7 +597,7 @@ function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => voi
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[100]">
               <SelectItem value="15">Net 15</SelectItem>
               <SelectItem value="30">Net 30</SelectItem>
               <SelectItem value="45">Net 45</SelectItem>
@@ -1001,7 +1047,7 @@ function EditInvoiceForm({ invoice, onClose, onSuccess }: { invoice: Invoice | n
   );
 }
 
-function InvoiceDetail({ invoice, onDownload, onSend }: { invoice: Invoice; onDownload: (inv: Invoice) => void; onSend: (inv: Invoice) => void }) {
+function InvoiceDetail({ invoice, onDownload, onSend, onPrint }: { invoice: Invoice; onDownload: (inv: Invoice) => void; onSend: (inv: Invoice) => void; onPrint?: (inv: Invoice) => void }) {
   return (
     <div className="space-y-6">
       <DialogHeader>
@@ -1070,21 +1116,21 @@ function InvoiceDetail({ invoice, onDownload, onSend }: { invoice: Invoice; onDo
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 no-print">
         <Button 
           className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
-          onClick={() => onDownload(invoice)}
+          onClick={() => onPrint && onPrint(invoice)}
         >
-          <Download className="h-4 w-4 mr-2" />
-          Download PDF
+          <Printer className="h-4 w-4 mr-2" />
+          Print
         </Button>
         <Button 
           className="flex-1" 
           variant="outline"
-          onClick={() => onSend(invoice)}
+          onClick={() => onDownload(invoice)}
         >
-          <Send className="h-4 w-4 mr-2" />
-          Send to Client
+          <Download className="h-4 w-4 mr-2" />
+          Download PDF
         </Button>
       </div>
     </div>

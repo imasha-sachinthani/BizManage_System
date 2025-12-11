@@ -23,8 +23,15 @@ router.get('/',
       const skip = (Number(page) - 1) * Number(limit);
       const take = Number(limit);
 
+      // Get first company if no user is authenticated (for testing)
+      let companyId = req.user?.companyId;
+      if (!companyId) {
+        const firstCompany = await prisma.company.findFirst();
+        companyId = firstCompany?.id;
+      }
+
       const where: any = {
-        companyId: req.user?.companyId || 'cm4d4k3xw0001abcd1234567890',
+        companyId: companyId,
       };
 
       // Search functionality

@@ -1,8 +1,15 @@
-import { useState } from 'react';
-import { Card, CardContent } from '../components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '../components/ui/alert';
+import { PurchasePrint } from '../components/PurchasePrint';
 import { 
   Table,
   TableBody,
@@ -31,8 +38,8 @@ import {
 } from '../components/ui/alert-dialog';
 import { StatusBadge } from '../components/StatusBadge';
 import { mockPurchaseOrders } from '../lib/mockData';
-import { PurchaseOrder } from '../types';
-import { Plus, Search, Filter, Download, Eye, Edit, Trash2 } from 'lucide-react';
+import { PurchaseOrder, PurchaseOrderItem } from '../types';
+import { Plus, Search, Filter, Download, Eye, Edit, Trash2, Printer, AlertTriangle, DollarSign, Truck, Calendar } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -51,6 +58,61 @@ export function Purchases() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [alerts, setAlerts] = useState<Array<{id: string; type: string; message: string}>>([]);
+
+  useEffect(() => {
+    // Check for important alerts when POs change
+    checkForAlerts();
+  }, [purchaseOrders]);
+
+  const checkForAlerts = () => {
+    const newAlerts: Array<{id: string; type: string; message: string}> = [];
+    
+    purchaseOrders.forEach(po => {
+      const deliveryDate = new Date(po.deliveryDate);
+      const today = new Date();
+      const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Alert for upcoming deliveries (within 7 days)
+      if (daysUntilDelivery > 0 && daysUntilDelivery <= 7 && (po.status === 'confirmed' || po.status === 'approved')) {
+        newAlerts.push({
+          id: `delivery-${po.id}`,
+          type: 'warning',
+          message: `PO ${po.poNumber} delivery expected in ${daysUntilDelivery} days`
+        });
+      }
+      
+      // Alert for overdue deliveries
+      if (daysUntilDelivery < 0 && po.status !== 'received') {
+        newAlerts.push({
+          id: `overdue-${po.id}`,
+          type: 'error',
+          message: `PO ${po.poNumber} delivery is OVERDUE by ${Math.abs(daysUntilDelivery)} days!`
+        });
+      }
+      
+      // Alert for pending approvals
+      if (po.status === 'pending') {
+        newAlerts.push({
+          id: `pending-${po.id}`,
+          type: 'info',
+          message: `PO ${po.poNumber} awaiting approval`
+        });
+      }
+      
+      // Alert for high-value overseas purchases
+      if (po.currency && po.currency !== 'LKR' && po.amount > 10000) {
+        const lkrValue = po.amount * (po.exchangeRate || 1);
+        newAlerts.push({
+          id: `highvalue-${po.id}`,
+          type: 'warning',
+          message: `High-value overseas PO ${po.poNumber}: ${po.currency} ${po.amount.toLocaleString()} (Rs ${lkrValue.toLocaleString()})`
+        });
+      }
+    });
+    
+    setAlerts(newAlerts);
+  };
 
   const filteredPOs = purchaseOrders.filter(po => {
     const matchesSearch = 
@@ -72,6 +134,13 @@ export function Purchases() {
     toast.success('Purchase Orders exported successfully as CSV');
   };
 
+  const handlePrint = (po: PurchaseOrder) => {
+    setSelectedPO(po);
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   const openViewDialog = (po: PurchaseOrder) => {
     setSelectedPO(po);
     setShowViewDialog(true);
@@ -87,13 +156,43 @@ export function Purchases() {
     setShowDeleteDialog(true);
   };
 
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      draft: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-blue-100 text-blue-800',
+      confirmed: 'bg-cyan-100 text-cyan-800',
+      received: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800',
+    };
+    return colors[status] || colors.draft;
+  };
+
   return (
     <div className="space-y-6">
+      {/* Alerts Section */}
+      {alerts.length > 0 && (
+        <div className="space-y-2">
+          {alerts.slice(0, 5).map(alert => (
+            <Alert key={alert.id} variant={alert.type === 'error' ? 'destructive' : 'default'} className={alert.type === 'warning' ? 'border-yellow-500 bg-yellow-50' : ''}>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle className="font-semibold">
+                {alert.type === 'error' ? 'Urgent Action Required' : alert.type === 'warning' ? 'Attention Required' : 'Notice'}
+              </AlertTitle>
+              <AlertDescription>{alert.message}</AlertDescription>
+            </Alert>
+          ))}
+          {alerts.length > 5 && (
+            <p className="text-sm text-slate-500 text-center">+ {alerts.length - 5} more alerts</p>
+          )}
+        </div>
+      )}
+
       {/* Header Actions */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <div>
-          <h2 className="text-2xl">Purchase Orders</h2>
-          <p className="text-slate-500 text-sm mt-1">Manage purchase orders and supplier payments</p>
+          <h2 className="text-2xl font-bold">Purchase Orders Management</h2>
+          <p className="text-slate-500 text-sm mt-1">Manage overseas and local supplier purchase orders</p>
         </div>
         
         <Button 
@@ -214,8 +313,18 @@ export function Purchases() {
                           <Button 
                             variant="ghost" 
                             size="icon"
+                            onClick={() => handlePrint(po)}
+                            className="hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                            title="Print PO"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
                             onClick={() => openViewDialog(po)}
                             className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                            title="View Details"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -224,6 +333,7 @@ export function Purchases() {
                             size="icon"
                             onClick={() => openEditDialog(po)}
                             className="hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                            title="Edit PO"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -232,6 +342,7 @@ export function Purchases() {
                             size="icon" 
                             onClick={() => openDeleteDialog(po)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+                            title="Delete PO"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -314,6 +425,22 @@ export function Purchases() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden Print Component */}
+      {selectedPO && (
+        <div className="hidden print:block">
+          <PurchasePrint 
+            purchase={selectedPO}
+            company={{
+              name: 'Your Company Name',
+              address: '123 Business Street, Colombo',
+              phone: '+94 11 234 5678',
+              email: 'info@yourcompany.com',
+              taxId: 'TAX-12345',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

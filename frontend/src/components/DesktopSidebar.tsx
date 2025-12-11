@@ -12,7 +12,9 @@ import {
   Bell,
   LogOut,
   Users,
-  Building2
+  Building2,
+  Shield,
+  Ship
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
@@ -38,9 +40,12 @@ export function DesktopSidebar({ currentPage, onNavigate, onLogout }: DesktopSid
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'invoices', label: 'Invoices', icon: FileText },
     { id: 'purchases', label: 'Purchases', icon: ShoppingCart },
+    { id: 'returns', label: 'Returns', icon: FileText },
+    { id: 'cusdec', label: 'CUSDEC', icon: Ship },
     { id: 'reports', label: 'VAT Reports', icon: BarChart3 },
     { id: 'payments', label: 'Payments', icon: Wallet },
     { id: 'tenders', label: 'Tenders', icon: Briefcase },
+    { id: 'login-sessions', label: 'Login Sessions', icon: Shield },
     { id: 'clients', label: 'Clients', icon: Users },
     { id: 'companies', label: 'Companies', icon: Building2 },
     { id: 'settings', label: 'Settings', icon: Settings },

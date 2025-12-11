@@ -1,5 +1,9 @@
 const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api';
 
+// Debug: Log the API URL being used
+console.log('🔐 Auth Service API_URL:', API_URL);
+console.log('🔐 VITE_API_URL from env:', (import.meta as any).env.VITE_API_URL);
+
 // Development mode flag
 const IS_DEV_MODE = false; // Set to false to use real API
 
