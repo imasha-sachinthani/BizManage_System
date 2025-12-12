@@ -510,17 +510,23 @@ router.post('/:id/send',
         throw new NotFoundError('Invoice');
       }
 
-      if (invoice.status !== 'DRAFT') {
+      // Don't allow sending cancelled or fully paid invoices
+      if (invoice.status === 'CANCELLED') {
         throw new ValidationErrorClass([
-          { field: 'status', message: 'Only draft invoices can be sent', value: invoice.status },
+          { field: 'status', message: 'Cancelled invoices cannot be sent', value: invoice.status },
         ]);
       }
 
-      // Update status to SENT
+      // Update status and sent date
+      // Keep current status if already PAID or PARTIALLY_PAID, otherwise set to PENDING
+      const newStatus = ['PAID', 'PARTIALLY_PAID'].includes(invoice.status) 
+        ? invoice.status 
+        : 'PENDING';
+      
       await prisma.invoice.update({
         where: { id },
         data: {
-          status: 'SENT',
+          status: newStatus,
           sentDate: new Date(),
           updatedAt: new Date(),
         },

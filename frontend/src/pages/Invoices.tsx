@@ -315,15 +315,6 @@ export function Invoices() {
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            onClick={() => handlePrintInvoice(invoice)}
-                            className="hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                            title="Print Invoice"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
                             onClick={() => handleSendEmail(invoice)}
                             className="hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
                           >
@@ -1048,12 +1039,307 @@ function EditInvoiceForm({ invoice, onClose, onSuccess }: { invoice: Invoice | n
 }
 
 function InvoiceDetail({ invoice, onDownload, onSend, onPrint }: { invoice: Invoice; onDownload: (inv: Invoice) => void; onSend: (inv: Invoice) => void; onPrint?: (inv: Invoice) => void }) {
+  const handleDownloadPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to download PDF');
+      return;
+    }
+
+    const subtotal = invoice.amount / 1.15;
+    const vat = invoice.amount - subtotal;
+    const statusColors: any = {
+      paid: 'background: #10b981; color: white;',
+      pending: 'background: #f59e0b; color: white;',
+      overdue: 'background: #ef4444; color: white;',
+      draft: 'background: #6b7280; color: white;',
+      partially_paid: 'background: #3b82f6; color: white;',
+    };
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice - ${invoice.invoiceNumber}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 3px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 30px; }
+            .company-name { font-size: 28px; font-weight: bold; color: #1A2B4A; margin-bottom: 5px; }
+            .title { font-size: 24px; font-weight: bold; margin: 20px 0; color: #1A2B4A; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
+            .info-item { margin-bottom: 15px; }
+            .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #1A2B4A; }
+            .status { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; ${statusColors[invoice.status] || statusColors.draft} }
+            .items-table { width: 100%; border-collapse: collapse; margin: 30px 0; }
+            .items-table th { background: #f1f5f9; padding: 12px; text-align: left; border-bottom: 2px solid #cbd5e1; font-weight: 600; }
+            .items-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+            .items-table tr:last-child td { border-bottom: none; }
+            .totals { background: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 30px; }
+            .totals-row { display: flex; justify-between; margin-bottom: 10px; }
+            .totals-label { color: #64748b; font-size: 15px; }
+            .totals-value { font-weight: 600; font-size: 15px; }
+            .total-final { border-top: 2px solid #cbd5e1; padding-top: 12px; margin-top: 12px; }
+            .total-final .totals-label { font-size: 18px; font-weight: 600; color: #1A2B4A; }
+            .total-final .totals-value { font-size: 20px; font-weight: 700; color: #1A2B4A; }
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+            .text-right { text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">BizManage Pro Edition</div>
+            <div style="color: #666; font-size: 14px;">Professional Business Management System</div>
+          </div>
+          
+          <div class="title">INVOICE</div>
+          
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="label">Invoice Number</div>
+              <div class="value">${invoice.invoiceNumber}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Status</div>
+              <div><span class="status">${invoice.status.toUpperCase().replace('_', ' ')}</span></div>
+            </div>
+            <div class="info-item">
+              <div class="label">Client</div>
+              <div class="value">${invoice.client}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Invoice Date</div>
+              <div class="value">${invoice.date}</div>
+            </div>
+            <div class="info-item" style="grid-column: span 2;">
+              <div class="label">Due Date</div>
+              <div class="value">${invoice.dueDate}</div>
+            </div>
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">VAT</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items.map((item: any) => `
+                <tr>
+                  <td><strong>${item.description}</strong></td>
+                  <td class="text-right">${item.quantity}</td>
+                  <td class="text-right">Rs ${item.unitPrice.toLocaleString()}</td>
+                  <td class="text-right">${item.vatRate}%</td>
+                  <td class="text-right"><strong>Rs ${item.total.toLocaleString()}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="totals">
+            <div class="totals-row">
+              <span class="totals-label">Subtotal:</span>
+              <span class="totals-value">Rs ${subtotal.toFixed(0)}</span>
+            </div>
+            <div class="totals-row">
+              <span class="totals-label">VAT (15%):</span>
+              <span class="totals-value">Rs ${vat.toFixed(0)}</span>
+            </div>
+            <div class="totals-row total-final">
+              <span class="totals-label">Total Amount:</span>
+              <span class="totals-value">Rs ${invoice.amount.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is a computer-generated invoice.</p>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Just open the window for viewing/downloading, don't auto-print
+    toast.success('Invoice PDF opened in new window');
+  };
+
+  const handlePrintPDF = () => {
+    if (!invoice) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print PDF');
+      return;
+    }
+
+    const subtotal = invoice.amount / 1.15;
+    const vat = invoice.amount - subtotal;
+    const statusColors: any = {
+      paid: 'background: #10b981; color: white;',
+      pending: 'background: #f59e0b; color: white;',
+      overdue: 'background: #ef4444; color: white;',
+      draft: 'background: #6b7280; color: white;',
+      partially_paid: 'background: #3b82f6; color: white;',
+    };
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice - ${invoice.invoiceNumber}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 3px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 30px; }
+            .company-name { font-size: 28px; font-weight: bold; color: #1A2B4A; margin-bottom: 5px; }
+            .title { font-size: 24px; font-weight: bold; margin: 20px 0; color: #1A2B4A; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
+            .info-item { margin-bottom: 15px; }
+            .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #1A2B4A; }
+            .status { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; ${statusColors[invoice.status] || statusColors.draft} }
+            .items-table { width: 100%; border-collapse: collapse; margin: 30px 0; }
+            .items-table th { background: #f1f5f9; padding: 12px; text-align: left; border-bottom: 2px solid #cbd5e1; font-weight: 600; }
+            .items-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+            .items-table tr:last-child td { border-bottom: none; }
+            .totals { background: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 30px; }
+            .totals-row { display: flex; justify-between; margin-bottom: 10px; }
+            .totals-label { color: #64748b; font-size: 15px; }
+            .totals-value { font-weight: 600; font-size: 15px; }
+            .total-final { border-top: 2px solid #cbd5e1; padding-top: 12px; margin-top: 12px; }
+            .total-final .totals-label { font-size: 18px; font-weight: 600; color: #1A2B4A; }
+            .total-final .totals-value { font-size: 20px; font-weight: 700; color: #1A2B4A; }
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+            .text-right { text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">BizManage Pro Edition</div>
+            <div style="color: #666; font-size: 14px;">Professional Business Management System</div>
+          </div>
+          
+          <div class="title">INVOICE</div>
+          
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="label">Invoice Number</div>
+              <div class="value">${invoice.invoiceNumber}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Status</div>
+              <div><span class="status">${invoice.status.toUpperCase().replace('_', ' ')}</span></div>
+            </div>
+            <div class="info-item">
+              <div class="label">Client</div>
+              <div class="value">${invoice.client}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Invoice Date</div>
+              <div class="value">${invoice.date}</div>
+            </div>
+            <div class="info-item" style="grid-column: span 2;">
+              <div class="label">Due Date</div>
+              <div class="value">${invoice.dueDate}</div>
+            </div>
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">VAT</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items.map((item: any) => `
+                <tr>
+                  <td><strong>${item.description}</strong></td>
+                  <td class="text-right">${item.quantity}</td>
+                  <td class="text-right">Rs ${item.unitPrice.toLocaleString()}</td>
+                  <td class="text-right">${item.vatRate}%</td>
+                  <td class="text-right"><strong>Rs ${item.total.toLocaleString()}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="totals">
+            <div class="totals-row">
+              <span class="totals-label">Subtotal:</span>
+              <span class="totals-value">Rs ${subtotal.toFixed(0)}</span>
+            </div>
+            <div class="totals-row">
+              <span class="totals-label">VAT (15%):</span>
+              <span class="totals-value">Rs ${vat.toFixed(0)}</span>
+            </div>
+            <div class="totals-row total-final">
+              <span class="totals-label">Total Amount:</span>
+              <span class="totals-value">Rs ${invoice.amount.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is a computer-generated invoice.</p>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Auto-trigger print dialog and close after printing
+    setTimeout(() => {
+      printWindow.print();
+      setTimeout(() => printWindow.close(), 500);
+      toast.success('Print dialog opened');
+    }, 250);
+  };
+
   return (
     <div className="space-y-6">
       <DialogHeader>
         <DialogTitle className="flex items-center justify-between">
           <span>Invoice Details</span>
-          <StatusBadge status={invoice.status} />
+          <div className="flex items-center gap-3">
+            <StatusBadge status={invoice.status} />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="bg-[#1A2B4A] text-white hover:bg-[#0F1729] hover:text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrintPDF}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print PDF
+              </Button>
+            </div>
+          </div>
         </DialogTitle>
       </DialogHeader>
 
@@ -1114,24 +1400,6 @@ function InvoiceDetail({ invoice, onDownload, onSend, onPrint }: { invoice: Invo
           <span>Total:</span>
           <span className="text-[#1A2B4A]">Rs {invoice.amount.toLocaleString()}</span>
         </div>
-      </div>
-
-      <div className="flex gap-3 no-print">
-        <Button 
-          className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
-          onClick={() => onPrint && onPrint(invoice)}
-        >
-          <Printer className="h-4 w-4 mr-2" />
-          Print
-        </Button>
-        <Button 
-          className="flex-1" 
-          variant="outline"
-          onClick={() => onDownload(invoice)}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download PDF
-        </Button>
       </div>
     </div>
   );
