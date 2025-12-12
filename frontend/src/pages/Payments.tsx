@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { PaymentPrint } from '../components/PaymentPrint';
 import { Payment } from '../types';
 import {
   Clock,
@@ -25,6 +24,7 @@ import {
   Mail,
   Phone,
   FileText,
+  Eye,
 } from 'lucide-react';
 import {
   Select,
@@ -51,7 +51,8 @@ import { toast } from 'sonner';
 export function Payments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [printPayment, setPrintPayment] = useState<Payment | null>(null);
+  const [viewDetailsPayment, setViewDetailsPayment] = useState<Payment | null>(null);
+  const [showViewReport, setShowViewReport] = useState(false);
   const [alerts, setAlerts] = useState<Array<{ type: string; message: string; count: number }>>([]);
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [recordPaymentDialog, setRecordPaymentDialog] = useState<Payment | null>(null);
@@ -238,17 +239,166 @@ export function Payments() {
     return matchesSearch && matchesStatus;
   });
 
-  const handlePrint = (payment: Payment) => {
-    setPrintPayment(payment);
+  const handleViewDetails = (payment: Payment) => {
+    setViewDetailsPayment(payment);
+  };
+
+  const handleDownloadPDF = () => {
+    if (!viewDetailsPayment) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Details - ${viewDetailsPayment.paymentNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; margin: 0; }
+            h1 { color: #1A2B4A; text-align: center; margin-bottom: 10px; }
+            h2 { color: #333; text-align: center; margin-bottom: 30px; font-size: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1A2B4A; padding-bottom: 20px; }
+            .info { font-size: 14px; color: #666; }
+            .section { margin: 30px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+            .section-title { font-size: 18px; font-weight: bold; color: #1A2B4A; margin-bottom: 15px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+            .field { padding: 10px; background: #f9f9f9; border-radius: 5px; }
+            .field-label { font-size: 12px; color: #666; margin-bottom: 3px; }
+            .field-value { font-size: 16px; font-weight: bold; color: #1A2B4A; }
+            .status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+            .status-completed { background: #10b981; color: white; }
+            .status-pending { background: #f59e0b; color: white; }
+            .status-overdue { background: #ef4444; color: white; }
+            .status-partial { background: #3b82f6; color: white; }
+            .amount { font-size: 32px; font-weight: bold; text-align: center; margin: 20px 0; }
+            .amount-completed { color: #10b981; }
+            .amount-pending { color: #f59e0b; }
+            .amount-overdue { color: #ef4444; }
+            .amount-partial { color: #3b82f6; }
+            .notes { padding: 15px; background: #f0f9ff; border-left: 4px solid #3b82f6; margin-top: 20px; }
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>BizManage Pro Edition</h1>
+            <h2>Payment Details</h2>
+            <p class="info">Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Payment Information</div>
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h3 style="margin: 0 0 10px 0; color: #1A2B4A;">${viewDetailsPayment.paymentNumber}</h3>
+              <span class="status status-${viewDetailsPayment.status}">${viewDetailsPayment.status.toUpperCase()}</span>
+            </div>
+            <div class="amount amount-${viewDetailsPayment.status}">
+              Rs ${(viewDetailsPayment.balanceAmount || viewDetailsPayment.amount).toLocaleString()}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Payment Details</div>
+            <div class="grid">
+              <div class="field">
+                <div class="field-label">Invoice Number</div>
+                <div class="field-value">${viewDetailsPayment.invoiceNumber}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Client</div>
+                <div class="field-value">${viewDetailsPayment.client}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Due Date</div>
+                <div class="field-value">${viewDetailsPayment.dueDate}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Payment Method</div>
+                <div class="field-value">${viewDetailsPayment.method?.replace('_', ' ').toUpperCase() || 'N/A'}</div>
+              </div>
+              ${viewDetailsPayment.reference ? `
+                <div class="field">
+                  <div class="field-label">Reference</div>
+                  <div class="field-value">${viewDetailsPayment.reference}</div>
+                </div>
+              ` : ''}
+              ${viewDetailsPayment.paymentDate ? `
+                <div class="field">
+                  <div class="field-label">Payment Date</div>
+                  <div class="field-value">${viewDetailsPayment.paymentDate}</div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          ${viewDetailsPayment.status === 'partial' ? `
+            <div class="section" style="background: #eff6ff;">
+              <div class="section-title">Payment Breakdown</div>
+              <div class="grid">
+                <div class="field">
+                  <div class="field-label">Total Amount</div>
+                  <div class="field-value">Rs ${viewDetailsPayment.amount.toLocaleString()}</div>
+                </div>
+                <div class="field" style="background: #dcfce7;">
+                  <div class="field-label">Paid Amount</div>
+                  <div class="field-value" style="color: #10b981;">Rs ${viewDetailsPayment.paidAmount?.toLocaleString()}</div>
+                </div>
+                <div class="field" style="background: #fef3c7;">
+                  <div class="field-label">Balance Due</div>
+                  <div class="field-value" style="color: #f59e0b;">Rs ${viewDetailsPayment.balanceAmount?.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          ${viewDetailsPayment.notes ? `
+            <div class="notes">
+              <strong>Notes:</strong> ${viewDetailsPayment.notes}
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p>This is a computer-generated payment document.</p>
+            <p>BizManage ERP System - Confidential</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    
     setTimeout(() => {
-      window.print();
-      setPrintPayment(null);
-    }, 100);
+      printWindow.focus();
+      printWindow.print();
+      toast.success('Print dialog opened');
+    }, 250);
+  };
+
+  const handlePrintPDF = () => {
+    handleDownloadPDF();
   };
 
   const handleSendReminder = (payment: Payment) => {
-    toast.success(`Payment reminder sent to ${payment.client}`, {
-      description: `Email sent for ${payment.paymentNumber}`,
+    // Simulate sending reminder
+    const daysOverdue = payment.status === 'overdue' ? (payment.daysOverdue || getDaysOverdue(payment.dueDate)) : 0;
+    const daysToDue = getDaysToDue(payment.dueDate);
+    
+    let message = `Payment reminder sent to ${payment.client}`;
+    let description = '';
+    
+    if (payment.status === 'overdue') {
+      description = `Urgent reminder sent for ${payment.paymentNumber} (${daysOverdue} days overdue)`;
+    } else if (payment.status === 'partial') {
+      description = `Reminder sent for ${payment.paymentNumber} - Balance: Rs ${payment.balanceAmount?.toLocaleString()}`;
+    } else {
+      description = `Reminder sent for ${payment.paymentNumber} - Due in ${daysToDue} days`;
+    }
+    
+    toast.success(message, {
+      description: description,
+      duration: 4000,
     });
   };
 
@@ -375,6 +525,70 @@ export function Payments() {
     totalPending: payments.filter(p => p.status !== 'completed').reduce((sum, p) => sum + (p.balanceAmount || p.amount), 0),
   };
 
+  const handleExportReport = () => {
+    // Create CSV header
+    const headers = [
+      'Status',
+      'Total Payments',
+      'Completed',
+      'Pending',
+      'Overdue',
+      'Partial',
+      'Total Received (Rs)',
+      'Total Pending (Rs)'
+    ];
+
+    // Create CSV row with report data
+    const row = [
+      'Summary',
+      stats.total,
+      stats.completed,
+      stats.pending,
+      stats.overdue,
+      stats.partial,
+      stats.totalReceived,
+      stats.totalPending
+    ];
+
+    // Combine headers and row
+    const csvContent = [
+      headers.join(','),
+      row.join(','),
+      '',
+      'Payment Details',
+      'Payment Number,Invoice Number,Client,Amount,Status,Due Date,Payment Method,Reference'
+    ].join('\\n');
+
+    // Add individual payment details
+    const paymentRows = filteredPayments.map(payment => [
+      payment.paymentNumber,
+      payment.invoiceNumber,
+      payment.client,
+      payment.balanceAmount || payment.amount,
+      payment.status.toUpperCase(),
+      payment.dueDate,
+      payment.method?.replace('_', ' ').toUpperCase() || 'N/A',
+      payment.reference || '-'
+    ].map(cell => `"${cell}"`).join(','));
+
+    const fullCsvContent = csvContent + '\\n' + paymentRows.join('\\n');
+
+    // Create blob and download
+    const blob = new Blob([fullCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Payment_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Payment report exported successfully!');
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
@@ -384,11 +598,11 @@ export function Payments() {
           <p className="text-slate-500 text-sm mt-1">Monitor payment status and manage collections</p>
         </div>
         <Button 
-          onClick={() => toast.info('Export functionality coming soon')}
+          onClick={() => setShowViewReport(true)}
           className="bg-[#1A2B4A] hover:bg-[#0F1729]"
         >
-          <Download className="h-4 w-4 mr-2" />
-          Export Report
+          <Eye className="h-4 w-4 mr-2" />
+          View Report
         </Button>
       </div>
 
@@ -787,13 +1001,13 @@ export function Payments() {
                         </>
                       )}
                       <Button
-                        onClick={() => handlePrint(payment)}
+                        onClick={() => handleViewDetails(payment)}
                         variant="outline"
                         size="sm"
                         className="hover:bg-blue-50 hover:border-blue-500"
                       >
-                        <Printer className="h-4 w-4 mr-1" />
-                        Print
+                        <Eye className="h-4 w-4 mr-1" />
+                        View Details
                       </Button>
                     </div>
                   </div>
@@ -804,12 +1018,252 @@ export function Payments() {
         )}
       </div>
 
-      {/* Hidden Print Component */}
-      {printPayment && (
-        <div className="hidden print:block">
-          <PaymentPrint payment={printPayment} />
-        </div>
-      )}
+      {/* View Details Dialog */}
+      <Dialog open={!!viewDetailsPayment} onOpenChange={(open) => !open && setViewDetailsPayment(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Payment Details - {viewDetailsPayment?.paymentNumber}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-[#1A2B4A] text-white hover:bg-[#0F1729] hover:text-white"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintPDF}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print PDF
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewDetailsPayment && (
+            <div className="space-y-6 mt-4">
+              {/* Status and Amount */}
+              <div className="text-center p-6 bg-slate-50 rounded-lg">
+                <div className="mb-4">
+                  {viewDetailsPayment.status === 'completed' && (
+                    <span className="inline-block px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold">
+                      COMPLETED
+                    </span>
+                  )}
+                  {viewDetailsPayment.status === 'pending' && (
+                    <span className="inline-block px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-semibold">
+                      PENDING
+                    </span>
+                  )}
+                  {viewDetailsPayment.status === 'overdue' && (
+                    <span className="inline-block px-4 py-2 bg-red-600 text-white rounded-full text-sm font-semibold">
+                      OVERDUE
+                    </span>
+                  )}
+                  {viewDetailsPayment.status === 'partial' && (
+                    <span className="inline-block px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold">
+                      PARTIAL
+                    </span>
+                  )}
+                </div>
+                <p className={`text-4xl font-bold ${
+                  viewDetailsPayment.status === 'completed' ? 'text-green-600' :
+                  viewDetailsPayment.status === 'overdue' ? 'text-red-600' :
+                  viewDetailsPayment.status === 'partial' ? 'text-blue-600' :
+                  'text-amber-600'
+                }`}>
+                  Rs {(viewDetailsPayment.balanceAmount || viewDetailsPayment.amount).toLocaleString()}
+                </p>
+                <p className="text-sm text-slate-500 mt-2">
+                  {viewDetailsPayment.status === 'partial' ? 'Balance Due' : 'Amount'}
+                </p>
+              </div>
+
+              {/* Payment Information */}
+              <div className="p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">Payment Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Invoice Number</p>
+                    <p className="font-semibold text-[#1A2B4A]">{viewDetailsPayment.invoiceNumber}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Client</p>
+                    <p className="font-semibold">{viewDetailsPayment.client}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Due Date</p>
+                    <p className="font-semibold">{viewDetailsPayment.dueDate}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Payment Method</p>
+                    <p className="font-semibold">{viewDetailsPayment.method?.replace('_', ' ').toUpperCase() || 'N/A'}</p>
+                  </div>
+                  {viewDetailsPayment.reference && (
+                    <div className="p-3 bg-slate-50 rounded">
+                      <p className="text-xs text-slate-500 mb-1">Reference</p>
+                      <p className="font-semibold">{viewDetailsPayment.reference}</p>
+                    </div>
+                  )}
+                  {viewDetailsPayment.paymentDate && (
+                    <div className="p-3 bg-slate-50 rounded">
+                      <p className="text-xs text-slate-500 mb-1">Payment Date</p>
+                      <p className="font-semibold">{viewDetailsPayment.paymentDate}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Breakdown for Partial Payments */}
+              {viewDetailsPayment.status === 'partial' && (
+                <div className="p-4 border rounded-lg bg-blue-50">
+                  <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">Payment Breakdown</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-white rounded">
+                      <span className="text-sm font-medium">Total Amount</span>
+                      <span className="text-lg font-bold text-[#1A2B4A]">Rs {viewDetailsPayment.amount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-green-50 rounded">
+                      <span className="text-sm font-medium">Paid Amount</span>
+                      <span className="text-lg font-bold text-green-700">Rs {viewDetailsPayment.paidAmount?.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-amber-50 rounded">
+                      <span className="text-sm font-medium">Balance Due</span>
+                      <span className="text-lg font-bold text-amber-700">Rs {viewDetailsPayment.balanceAmount?.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {viewDetailsPayment.notes && (
+                <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r">
+                  <p className="text-sm"><span className="font-semibold text-[#1A2B4A]">Notes:</span></p>
+                  <p className="text-sm text-slate-700 mt-2">{viewDetailsPayment.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Report Dialog */}
+      <Dialog open={showViewReport} onOpenChange={setShowViewReport}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Payment Report Summary</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportReport}
+                className="bg-[#1A2B4A] text-white hover:bg-[#0F1729] hover:text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Report
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {/* Summary Statistics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-blue-50 border-l-4 border-blue-600 rounded-r">
+                <p className="text-xs text-slate-600 mb-1">Total Payments</p>
+                <p className="text-2xl font-bold text-blue-700">{stats.total}</p>
+              </div>
+              <div className="p-4 bg-green-50 border-l-4 border-green-600 rounded-r">
+                <p className="text-xs text-slate-600 mb-1">Completed</p>
+                <p className="text-2xl font-bold text-green-700">{stats.completed}</p>
+              </div>
+              <div className="p-4 bg-amber-50 border-l-4 border-amber-600 rounded-r">
+                <p className="text-xs text-slate-600 mb-1">Pending</p>
+                <p className="text-2xl font-bold text-amber-700">{stats.pending}</p>
+              </div>
+              <div className="p-4 bg-red-50 border-l-4 border-red-600 rounded-r">
+                <p className="text-xs text-slate-600 mb-1">Overdue</p>
+                <p className="text-2xl font-bold text-red-700">{stats.overdue}</p>
+              </div>
+              <div className="p-4 bg-purple-50 border-l-4 border-purple-600 rounded-r">
+                <p className="text-xs text-slate-600 mb-1">Partial</p>
+                <p className="text-2xl font-bold text-purple-700">{stats.partial}</p>
+              </div>
+              <div className="p-4 bg-emerald-50 border-l-4 border-emerald-600 rounded-r col-span-2 md:col-span-1">
+                <p className="text-xs text-slate-600 mb-1">Total Received</p>
+                <p className="text-xl font-bold text-emerald-700">Rs {stats.totalReceived.toLocaleString()}</p>
+              </div>
+              <div className="p-4 bg-orange-50 border-l-4 border-orange-600 rounded-r col-span-2 md:col-span-2">
+                <p className="text-xs text-slate-600 mb-1">Total Pending</p>
+                <p className="text-xl font-bold text-orange-700">Rs {stats.totalPending.toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Payment List Summary */}
+            <div className="p-4 border rounded-lg">
+              <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">Payment Details</h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {filteredPayments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between p-3 bg-slate-50 rounded hover:bg-slate-100 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-sm text-[#1A2B4A]">{payment.paymentNumber}</p>
+                        {payment.status === 'completed' && (
+                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
+                            COMPLETED
+                          </span>
+                        )}
+                        {payment.status === 'pending' && (
+                          <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">
+                            PENDING
+                          </span>
+                        )}
+                        {payment.status === 'overdue' && (
+                          <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-semibold">
+                            OVERDUE
+                          </span>
+                        )}
+                        {payment.status === 'partial' && (
+                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
+                            PARTIAL
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600">{payment.client} • {payment.invoiceNumber}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-sm ${
+                        payment.status === 'completed' ? 'text-green-600' :
+                        payment.status === 'overdue' ? 'text-red-600' :
+                        payment.status === 'partial' ? 'text-blue-600' :
+                        'text-amber-600'
+                      }`}>
+                        Rs {(payment.balanceAmount || payment.amount).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-slate-500">{payment.dueDate}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary Note */}
+            <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r">
+              <p className="text-sm text-slate-700">
+                <span className="font-semibold">Report Generated:</span> {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+              </p>
+              <p className="text-xs text-slate-600 mt-2">
+                This report includes {filteredPayments.length} payment(s) based on current filters.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

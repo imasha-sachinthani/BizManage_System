@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -16,6 +16,8 @@ import {
   AlertCircle,
   Trash2,
   Edit,
+  Eye,
+  Download,
 } from 'lucide-react';
 import {
   Select,
@@ -38,9 +40,16 @@ export function Returns() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [printReturn, setPrintReturn] = useState<Return | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
 
   // Mock returns data
-  const [returns, setReturns] = useState<Return[]>([
+  const [returns, setReturns] = useState<Return[]>(() => {
+    const saved = localStorage.getItem('returns');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return [
     {
       id: '1',
       returnNumber: 'RET-2024-001',
@@ -140,7 +149,13 @@ export function Returns() {
       ],
       notes: 'Return policy clearly states 30-day limit. Customer requested return on day 45.',
     },
-  ]);
+  ];
+  });
+
+  useEffect(() => {
+    // Save to localStorage whenever returns change
+    localStorage.setItem('returns', JSON.stringify(returns));
+  }, [returns]);
 
   // Form state for new return
   const [newReturn, setNewReturn] = useState({
@@ -259,6 +274,305 @@ export function Returns() {
       window.print();
       setPrintReturn(null);
     }, 100);
+  };
+
+  const handleViewDetails = (returnData: Return) => {
+    setSelectedReturn(returnData);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleDownloadPDF = (returnData: Return) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to download PDF');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Return Note - ${returnData.returnNumber}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 2px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .title { font-size: 20px; font-weight: bold; margin: 20px 0; color: #dc2626; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+            .detail-item { margin-bottom: 10px; }
+            .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #1A2B4A; }
+            .amount { font-size: 24px; font-weight: bold; color: #dc2626; }
+            .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+            .status-approved { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .status-completed { background: #dbeafe; color: #2563eb; }
+            .status-rejected { background: #fee2e2; color: #dc2626; }
+            .reason-box { background: #fef3c7; border-left: 4px solid #d97706; padding: 12px; margin: 20px 0; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .items-table th { background: #f1f5f9; padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .items-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Your Company Name</div>
+            <div style="color: #666;">123 Business Street, Colombo</div>
+            <div style="color: #666;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+          </div>
+          
+          <div class="title">RETURN NOTE</div>
+          
+          <div class="details">
+            <div class="detail-item">
+              <div class="label">Return Number</div>
+              <div class="value">${returnData.returnNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Status</div>
+              <div><span class="status status-${returnData.status}">${returnData.status.toUpperCase()}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Invoice Number</div>
+              <div class="value">${returnData.invoiceNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Return Date</div>
+              <div class="value">${returnData.date}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Client</div>
+              <div class="value">${returnData.client}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Refund Method</div>
+              <div class="value">${returnData.refundMethod ? returnData.refundMethod.replace('_', ' ').toUpperCase() : 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="reason-box">
+            <strong>Reason:</strong> ${returnData.reason}
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>VAT Rate</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${returnData.items.map(item => `
+                <tr>
+                  <td>
+                    <strong>${item.description}</strong><br>
+                    <small style="color: #666;">Reason: ${item.reason}</small>
+                  </td>
+                  <td>${item.quantity}</td>
+                  <td>Rs ${item.unitPrice.toLocaleString()}</td>
+                  <td>${item.vatRate}%</td>
+                  <td>Rs ${item.total.toLocaleString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div style="text-align: right; margin-top: 20px;">
+            <div style="margin-bottom: 10px;">
+              <span class="label">Amount:</span>
+              <span class="value" style="margin-left: 20px;">Rs ${returnData.amount.toLocaleString()}</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <span class="label">VAT Amount:</span>
+              <span class="value" style="margin-left: 20px;">Rs ${returnData.vatAmount.toLocaleString()}</span>
+            </div>
+            <div style="border-top: 2px solid #cbd5e1; padding-top: 10px; margin-top: 10px;">
+              <span class="label">Total Refund:</span>
+              <span class="amount" style="margin-left: 20px;">Rs ${returnData.totalAmount.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          ${returnData.approvedBy ? `
+            <div style="margin-top: 20px; padding: 10px; background: #f1f5f9; border-radius: 4px;">
+              <strong>Approved by:</strong> ${returnData.approvedBy}
+            </div>
+          ` : ''}
+          
+          ${returnData.notes ? `
+            <div style="margin-top: 10px; padding: 10px; background: #f1f5f9; border-radius: 4px;">
+              <strong>Notes:</strong> ${returnData.notes}
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p>This is a computer-generated return note.</p>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.print();
+      setTimeout(() => printWindow.close(), 500);
+      toast.success('PDF download initiated');
+    }, 250);
+  };
+
+  const handlePrintPDF = (returnData: Return) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print PDF');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Return Note - ${returnData.returnNumber}</title>
+          <style>
+            @page { margin: 20mm; }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 2px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .title { font-size: 20px; font-weight: bold; margin: 20px 0; color: #dc2626; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+            .detail-item { margin-bottom: 10px; }
+            .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #1A2B4A; }
+            .amount { font-size: 24px; font-weight: bold; color: #dc2626; }
+            .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+            .status-approved { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .status-completed { background: #dbeafe; color: #2563eb; }
+            .status-rejected { background: #fee2e2; color: #dc2626; }
+            .reason-box { background: #fef3c7; border-left: 4px solid #d97706; padding: 12px; margin: 20px 0; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .items-table th { background: #f1f5f9; padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .items-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Your Company Name</div>
+            <div style="color: #666;">123 Business Street, Colombo</div>
+            <div style="color: #666;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+          </div>
+          
+          <div class="title">RETURN NOTE</div>
+          
+          <div class="details">
+            <div class="detail-item">
+              <div class="label">Return Number</div>
+              <div class="value">${returnData.returnNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Status</div>
+              <div><span class="status status-${returnData.status}">${returnData.status.toUpperCase()}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Invoice Number</div>
+              <div class="value">${returnData.invoiceNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Return Date</div>
+              <div class="value">${returnData.date}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Client</div>
+              <div class="value">${returnData.client}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Refund Method</div>
+              <div class="value">${returnData.refundMethod ? returnData.refundMethod.replace('_', ' ').toUpperCase() : 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="reason-box">
+            <strong>Reason:</strong> ${returnData.reason}
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>VAT Rate</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${returnData.items.map(item => `
+                <tr>
+                  <td>
+                    <strong>${item.description}</strong><br>
+                    <small style="color: #666;">Reason: ${item.reason}</small>
+                  </td>
+                  <td>${item.quantity}</td>
+                  <td>Rs ${item.unitPrice.toLocaleString()}</td>
+                  <td>${item.vatRate}%</td>
+                  <td>Rs ${item.total.toLocaleString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div style="text-align: right; margin-top: 20px;">
+            <div style="margin-bottom: 10px;">
+              <span class="label">Amount:</span>
+              <span class="value" style="margin-left: 20px;">Rs ${returnData.amount.toLocaleString()}</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <span class="label">VAT Amount:</span>
+              <span class="value" style="margin-left: 20px;">Rs ${returnData.vatAmount.toLocaleString()}</span>
+            </div>
+            <div style="border-top: 2px solid #cbd5e1; padding-top: 10px; margin-top: 10px;">
+              <span class="label">Total Refund:</span>
+              <span class="amount" style="margin-left: 20px;">Rs ${returnData.totalAmount.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          ${returnData.approvedBy ? `
+            <div style="margin-top: 20px; padding: 10px; background: #f1f5f9; border-radius: 4px;">
+              <strong>Approved by:</strong> ${returnData.approvedBy}
+            </div>
+          ` : ''}
+          
+          ${returnData.notes ? `
+            <div style="margin-top: 10px; padding: 10px; background: #f1f5f9; border-radius: 4px;">
+              <strong>Notes:</strong> ${returnData.notes}
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p>This is a computer-generated return note.</p>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+      toast.success('Printing initiated');
+    }, 250);
   };
 
   const getStatusIcon = (status: string) => {
@@ -658,13 +972,13 @@ export function Returns() {
                     </div>
 
                     <Button
-                      onClick={() => handlePrint(returnData)}
+                      onClick={() => handleViewDetails(returnData)}
                       variant="outline"
                       size="sm"
-                      className="w-full"
+                      className="w-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-600"
                     >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
                     </Button>
                   </div>
                 </div>
@@ -673,6 +987,143 @@ export function Returns() {
           ))
         )}
       </div>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedReturn && (
+            <div className="space-y-6">
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>Return Details</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(selectedReturn.status)}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadge(selectedReturn.status)}`}>
+                      {selectedReturn.status.toUpperCase()}
+                    </span>
+                  </div>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm text-slate-500">Return Number</p>
+                  <p className="text-lg font-semibold text-[#1A2B4A]">{selectedReturn.returnNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Invoice Number</p>
+                  <p className="text-lg font-semibold">{selectedReturn.invoiceNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Client</p>
+                  <p className="text-lg">{selectedReturn.client}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Return Date</p>
+                  <p>{selectedReturn.date}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Refund Method</p>
+                  <p className="capitalize">{selectedReturn.refundMethod?.replace('_', ' ') || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Total Refund</p>
+                  <p className="text-2xl font-bold text-red-600">Rs {selectedReturn.totalAmount.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4">
+                <p className="text-sm font-semibold text-amber-800">Reason:</p>
+                <p className="text-amber-900 mt-1">{selectedReturn.reason}</p>
+              </div>
+
+              {selectedReturn.items && selectedReturn.items.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Return Items</h4>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-left p-3 text-sm font-semibold">Description</th>
+                          <th className="text-center p-3 text-sm font-semibold">Quantity</th>
+                          <th className="text-right p-3 text-sm font-semibold">Unit Price</th>
+                          <th className="text-center p-3 text-sm font-semibold">VAT</th>
+                          <th className="text-right p-3 text-sm font-semibold">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedReturn.items.map((item, index) => (
+                          <tr key={index} className="border-t">
+                            <td className="p-3">
+                              <div>
+                                <p className="font-medium">{item.description}</p>
+                                <p className="text-xs text-slate-500">Reason: {item.reason}</p>
+                              </div>
+                            </td>
+                            <td className="text-center p-3">{item.quantity}</td>
+                            <td className="text-right p-3">Rs {item.unitPrice.toLocaleString()}</td>
+                            <td className="text-center p-3">{item.vatRate}%</td>
+                            <td className="text-right p-3 font-semibold">Rs {item.total.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <div className="text-right space-y-2">
+                  <div className="flex justify-between gap-8">
+                    <span className="text-slate-600">Amount:</span>
+                    <span className="font-semibold">Rs {selectedReturn.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between gap-8">
+                    <span className="text-slate-600">VAT Amount:</span>
+                    <span className="font-semibold">Rs {selectedReturn.vatAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between gap-8 pt-2 border-t-2">
+                    <span className="font-bold">Total Refund:</span>
+                    <span className="text-xl font-bold text-red-600">Rs {selectedReturn.totalAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedReturn.approvedBy && (
+                <div className="bg-green-50 p-3 rounded">
+                  <span className="text-sm font-semibold text-green-800">Approved by: </span>
+                  <span className="text-sm text-green-900">{selectedReturn.approvedBy}</span>
+                </div>
+              )}
+
+              {selectedReturn.notes && (
+                <div className="bg-blue-50 p-3 rounded">
+                  <span className="text-sm font-semibold text-blue-800">Notes: </span>
+                  <span className="text-sm text-blue-900">{selectedReturn.notes}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
+                  onClick={() => handleDownloadPDF(selectedReturn)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1 border-[#1A2B4A] text-[#1A2B4A] hover:bg-[#1A2B4A] hover:text-white"
+                  onClick={() => handlePrintPDF(selectedReturn)}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print PDF
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Hidden Print Component */}
       {printReturn && (

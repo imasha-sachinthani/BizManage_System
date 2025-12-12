@@ -23,7 +23,8 @@ import {
   LayoutDashboard,
   Printer
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -32,14 +33,97 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 
 export function Settings() {
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isConfigureRoleOpen, setIsConfigureRoleOpen] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Staff' });
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedRole, setSelectedRole] = useState<any>(null);
+  const [allRolePermissions, setAllRolePermissions] = useState(() => {
+    const saved = localStorage.getItem('rolePermissions');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      Admin: { invoices: true, clients: true, reports: true, purchases: true, payments: true, settings: true, users: true, tenders: true },
+      Accountant: { invoices: true, clients: true, reports: true, purchases: true, payments: true, settings: false, users: false, tenders: false },
+      Manager: { invoices: true, clients: true, reports: true, purchases: true, payments: false, settings: false, users: false, tenders: true },
+      Staff: { invoices: false, clients: true, reports: false, purchases: false, payments: false, settings: false, users: false, tenders: false },
+    };
+  });
+  const [currentPermissions, setCurrentPermissions] = useState({
+    invoices: true,
+    clients: true,
+    reports: true,
+    purchases: true,
+    payments: true,
+    settings: true,
+    users: true,
+    tenders: true,
+  });
+  const [notificationPreferences, setNotificationPreferences] = useState(() => {
+    const saved = localStorage.getItem('notificationPreferences');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      invoicePayment: true,
+      invoiceOverdue: true,
+      vatReminders: true,
+      newPurchase: false,
+      weeklyReports: false,
+    };
+  });
+  const [users, setUsers] = useState(() => {
+    const saved = localStorage.getItem('teamMembers');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return [
+      { id: '1', name: 'Ravindu Perera', email: 'ravindu@company.lk', role: 'Admin', avatar: 'RP' },
+      { id: '2', name: 'Samantha Silva', email: 'samantha@company.lk', role: 'Accountant', avatar: 'SS' },
+      { id: '3', name: 'Kasun Fernando', email: 'kasun@company.lk', role: 'Manager', avatar: 'KF' },
+      { id: '4', name: 'Nisha Wickramasinghe', email: 'nisha@company.lk', role: 'Staff', avatar: 'NW' },
+    ];
+  });
+
+  // Save to localStorage whenever users change
+  useEffect(() => {
+    localStorage.setItem('teamMembers', JSON.stringify(users));
+  }, [users]);
+
+  // Save role permissions to localStorage
+  useEffect(() => {
+    localStorage.setItem('rolePermissions', JSON.stringify(allRolePermissions));
+  }, [allRolePermissions]);
+
+  // Save notification preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('notificationPreferences', JSON.stringify(notificationPreferences));
+  }, [notificationPreferences]);
+
   const handleSaveCompanyInfo = () => {
     toast.success('Company information saved successfully');
   };
 
   const handleSaveNotifications = () => {
+    localStorage.setItem('notificationPreferences', JSON.stringify(notificationPreferences));
     toast.success('Notification preferences saved successfully');
+  };
+
+  const handleNotificationToggle = (key: string, value: boolean) => {
+    setNotificationPreferences({
+      ...notificationPreferences,
+      [key]: value,
+    });
   };
 
   const handleSaveSecuritySettings = () => {
@@ -51,7 +135,70 @@ export function Settings() {
   };
 
   const handleAddUser = () => {
-    toast.info('Add user dialog opened');
+    setIsAddUserOpen(true);
+  };
+
+  const handleSubmitUser = () => {
+    if (!newUser.name || !newUser.email) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    const initials = newUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    const user = {
+      id: Date.now().toString(),
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      avatar: initials,
+    };
+    setUsers([...users, user]);
+    localStorage.setItem('teamMembers', JSON.stringify([...users, user]));
+    toast.success(`User ${newUser.name} added successfully`);
+    setNewUser({ name: '', email: '', role: 'Staff' });
+    setIsAddUserOpen(false);
+  };
+
+  const handleEditUserClick = (user) => {
+    setSelectedUser(user);
+    setIsEditUserOpen(true);
+  };
+
+  const handleUpdateUser = () => {
+    if (!selectedUser.name || !selectedUser.email) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    const updatedUsers = users.map(u => u.id === selectedUser.id ? selectedUser : u);
+    setUsers(updatedUsers);
+    localStorage.setItem('teamMembers', JSON.stringify(updatedUsers));
+    toast.success(`User ${selectedUser.name} updated successfully`);
+    setIsEditUserOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleConfigureRole = (role: string) => {
+    setSelectedRole(role);
+    setCurrentPermissions(allRolePermissions[role] || {
+      invoices: true,
+      clients: true,
+      reports: true,
+      purchases: true,
+      payments: true,
+      settings: true,
+      users: true,
+      tenders: true,
+    });
+    setIsConfigureRoleOpen(true);
+  };
+
+  const handleSavePermissions = () => {
+    setAllRolePermissions({
+      ...allRolePermissions,
+      [selectedRole]: currentPermissions,
+    });
+    toast.success(`${selectedRole} permissions updated successfully`);
+    setIsConfigureRoleOpen(false);
+    setSelectedRole(null);
   };
 
   return (
@@ -183,13 +330,8 @@ export function Settings() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { name: 'Ravindu Perera', email: 'ravindu@company.lk', role: 'Admin', avatar: 'RP' },
-                  { name: 'Samantha Silva', email: 'samantha@company.lk', role: 'Accountant', avatar: 'SS' },
-                  { name: 'Kasun Fernando', email: 'kasun@company.lk', role: 'Manager', avatar: 'KF' },
-                  { name: 'Nisha Wickramasinghe', email: 'nisha@company.lk', role: 'Staff', avatar: 'NW' },
-                ].map((user, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                {users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12 border-2 border-[#D4AF37]">
                         <AvatarFallback className="bg-gradient-to-br from-[#D4AF37] to-[#F4E5B0] text-[#1A2B4A]">
@@ -208,7 +350,7 @@ export function Settings() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => toast.info(`Editing user ${user.name}`)}
+                        onClick={() => handleEditUserClick(user)}
                       >
                         Edit
                       </Button>
@@ -218,6 +360,129 @@ export function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Add User Dialog */}
+          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="user-name">Full Name</Label>
+                  <Input
+                    id="user-name"
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="user-email">Email</Label>
+                  <Input
+                    id="user-email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="user-role">Role</Label>
+                  <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Admin">Admin</SelectItem>
+                      <SelectItem value="Accountant">Accountant</SelectItem>
+                      <SelectItem value="Manager">Manager</SelectItem>
+                      <SelectItem value="Staff">Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
+                    onClick={handleSubmitUser}
+                  >
+                    Add User
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setIsAddUserOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit User Dialog */}
+          <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit User</DialogTitle>
+              </DialogHeader>
+              {selectedUser && (
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-user-name">Full Name</Label>
+                    <Input
+                      id="edit-user-name"
+                      value={selectedUser.name}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, name: e.target.value })}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-user-email">Email</Label>
+                    <Input
+                      id="edit-user-email"
+                      type="email"
+                      value={selectedUser.email}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, email: e.target.value })}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-user-role">Role</Label>
+                    <Select value={selectedUser.role} onValueChange={(value) => setSelectedUser({ ...selectedUser, role: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Accountant">Accountant</SelectItem>
+                        <SelectItem value="Manager">Manager</SelectItem>
+                        <SelectItem value="Staff">Staff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
+                      onClick={handleUpdateUser}
+                    >
+                      Update User
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setIsEditUserOpen(false);
+                        setSelectedUser(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           <Card className="shadow-lg border-slate-200">
             <CardHeader>
@@ -239,7 +504,7 @@ export function Settings() {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => toast.info(`Configuring ${roleItem.role} permissions`)}
+                      onClick={() => handleConfigureRole(roleItem.role)}
                     >
                       Configure
                     </Button>
@@ -248,28 +513,83 @@ export function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Configure Role Permissions Dialog */}
+          <Dialog open={isConfigureRoleOpen} onOpenChange={setIsConfigureRoleOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Configure {selectedRole} Permissions</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                {[
+                  { key: 'invoices', label: 'Invoices', description: 'Create, edit, and manage invoices' },
+                  { key: 'clients', label: 'Clients', description: 'Manage client information' },
+                  { key: 'reports', label: 'Reports', description: 'View and generate reports' },
+                  { key: 'purchases', label: 'Purchases', description: 'Manage purchase orders' },
+                  { key: 'payments', label: 'Payments', description: 'Process and track payments' },
+                  { key: 'settings', label: 'Settings', description: 'Access system settings' },
+                  { key: 'users', label: 'Users', description: 'Manage user accounts' },
+                  { key: 'tenders', label: 'Tenders', description: 'Manage tender documents' },
+                ].map((permission) => (
+                  <div key={permission.key} className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <p className="font-medium">{permission.label}</p>
+                      <p className="text-sm text-slate-500">{permission.description}</p>
+                    </div>
+                    <Switch
+                      checked={currentPermissions[permission.key as keyof typeof currentPermissions]}
+                      onCheckedChange={(checked) =>
+                        setCurrentPermissions({ ...currentPermissions, [permission.key]: checked })
+                      }
+                    />
+                  </div>
+                ))}
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
+                    onClick={handleSavePermissions}
+                  >
+                    Save Permissions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setIsConfigureRoleOpen(false);
+                      setSelectedRole(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Notifications */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card className="shadow-lg border-slate-200">
-            <CardHeader>
+          <Card className="shadow-lg border-slate-200 bg-white">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
               <CardTitle>Email Notifications</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 pt-6">
               {[
-                { label: 'Invoice payment received', description: 'Get notified when a client pays an invoice' },
-                { label: 'Invoice overdue', description: 'Receive alerts for overdue invoices' },
-                { label: 'VAT filing reminders', description: 'Reminders before VAT submission deadlines' },
-                { label: 'New purchase order', description: 'Notifications for new purchase orders' },
-                { label: 'Weekly reports', description: 'Receive weekly summary reports' },
-              ].map((notification, index) => (
-                <div key={index} className="flex items-center justify-between">
+                { key: 'invoicePayment', label: 'Invoice payment received', description: 'Get notified when a client pays an invoice', color: 'from-green-50 to-emerald-50 border-green-200 hover:from-green-100 hover:to-emerald-100' },
+                { key: 'invoiceOverdue', label: 'Invoice overdue', description: 'Receive alerts for overdue invoices', color: 'from-red-50 to-rose-50 border-red-200 hover:from-red-100 hover:to-rose-100' },
+                { key: 'vatReminders', label: 'VAT filing reminders', description: 'Reminders before VAT submission deadlines', color: 'from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100' },
+                { key: 'newPurchase', label: 'New purchase order', description: 'Notifications for new purchase orders', color: 'from-purple-50 to-violet-50 border-purple-200 hover:from-purple-100 hover:to-violet-100' },
+                { key: 'weeklyReports', label: 'Weekly reports', description: 'Receive weekly summary reports', color: 'from-orange-50 to-amber-50 border-orange-200 hover:from-orange-100 hover:to-amber-100' },
+              ].map((notification) => (
+                <div key={notification.key} className={`flex items-center justify-between p-5 bg-gradient-to-r ${notification.color} rounded-xl transition-all duration-200 border-2 shadow-sm`}>
                   <div className="flex-1">
-                    <p>{notification.label}</p>
-                    <p className="text-sm text-slate-500 mt-1">{notification.description}</p>
+                    <p className="font-semibold text-slate-900 text-base">{notification.label}</p>
+                    <p className="text-sm text-slate-600 mt-1.5">{notification.description}</p>
                   </div>
-                  <Switch defaultChecked={index < 3} />
+                  <Switch 
+                    checked={notificationPreferences[notification.key as keyof typeof notificationPreferences]}
+                    onCheckedChange={(checked) => handleNotificationToggle(notification.key, checked)}
+                  />
                 </div>
               ))}
 

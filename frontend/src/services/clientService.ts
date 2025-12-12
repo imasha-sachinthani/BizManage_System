@@ -63,17 +63,29 @@ export interface ClientFilters {
 }
 
 // Transform backend client to frontend client
-function transformBackendClient(backendClient: BackendClient): Client {
+function transformBackendClient(backendClient: any): Client {
   return {
     id: backendClient.id,
+    code: backendClient.code,
     name: backendClient.name,
-    email: backendClient.email || '',
-    phone: backendClient.phone || '',
-    address: backendClient.address || '',
-    vatNumber: backendClient.taxId || '',
+    email: backendClient.email,
+    phone: backendClient.phone,
+    mobile: backendClient.mobile,
+    taxId: backendClient.taxId,
+    address: backendClient.address,
+    city: backendClient.city,
+    country: backendClient.country,
+    creditLimit: Number(backendClient.creditLimit),
+    paymentTerms: backendClient.paymentTerms,
+    category: backendClient.category,
+    isActive: backendClient.isActive,
+    notes: backendClient.notes,
     contactPerson: '', // Not available in backend schema yet
     businessType: '', // Not available in backend schema yet
     status: backendClient.isActive ? 'active' : 'inactive',
+    createdAt: backendClient.createdAt,
+    updatedAt: backendClient.updatedAt,
+    _count: backendClient._count,
   };
 }
 

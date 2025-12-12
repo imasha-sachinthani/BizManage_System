@@ -1,0 +1,38 @@
+-- Add new client to the system
+INSERT INTO clients (
+  id, 
+  "companyId", 
+  code, 
+  name, 
+  email, 
+  phone, 
+  mobile, 
+  address, 
+  city, 
+  country, 
+  "taxId", 
+  "creditLimit", 
+  "paymentTerms", 
+  category, 
+  "isActive", 
+  "createdAt", 
+  "updatedAt"
+) VALUES (
+  gen_random_uuid(),
+  'cmj1c1j6f001edeg6sr6xymst',
+  'CLI-003',
+  'Tech Solutions Pvt Ltd',
+  'info@techsolutions.lk',
+  '+94 77 123 4567',
+  '+94 77 765 4321',
+  '123 Main Street, Colombo 05',
+  'Colombo',
+  'Sri Lanka',
+  'VAT-TECH789',
+  750000,
+  30,
+  'REGULAR',
+  true,
+  NOW(),
+  NOW()
+) RETURNING id, code, name, email, phone;

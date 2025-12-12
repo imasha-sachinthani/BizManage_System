@@ -104,7 +104,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api}
     command: npm run dev
     networks:
       - bizmanage-network

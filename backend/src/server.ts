@@ -141,27 +141,19 @@ import authRoutes from './routes/auth';
 import clientRoutes from './routes/clients';
 import invoiceRoutes from './routes/invoices';
 import companyRoutes from './routes/companies';
-// import supplierRoutes from './routes/suppliers';
-// import purchaseRoutes from './routes/purchases';
-// import cusdecRoutes from './routes/cusdec';
-// import tenderRoutes from './routes/tenders';
-// import assetRoutes from './routes/assets';
-// import expenseRoutes from './routes/expenses';
-// import reportRoutes from './routes/reports';
-// import dashboardRoutes from './routes/dashboard';
+import purchaseRoutes from './routes/purchases';
+import paymentRoutes from './routes/payments';
+import returnRoutes from './routes/returns';
+import tenderRoutes from './routes/tenders';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/companies', companyRoutes);
-// app.use('/api/suppliers', supplierRoutes);
-// app.use('/api/purchases', purchaseRoutes);
-// app.use('/api/cusdec', cusdecRoutes);
-// app.use('/api/tenders', tenderRoutes);
-// app.use('/api/assets', assetRoutes);
-// app.use('/api/expenses', expenseRoutes);
-// app.use('/api/reports', reportRoutes);
-// app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/purchases', purchaseRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/returns', returnRoutes);
+app.use('/api/tenders', tenderRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -9,7 +9,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from '../components/ui/alert';
-import { PurchasePrint } from '../components/PurchasePrint';
 import { 
   Table,
   TableBody,
@@ -47,10 +46,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function Purchases() {
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(mockPurchaseOrders);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => {
+    const saved = localStorage.getItem('purchaseOrders');
+    return saved ? JSON.parse(saved) : mockPurchaseOrders;
+  });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
@@ -59,6 +61,11 @@ export function Purchases() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [alerts, setAlerts] = useState<Array<{id: string; type: string; message: string}>>([]);
+
+  useEffect(() => {
+    // Save to localStorage whenever purchaseOrders change
+    localStorage.setItem('purchaseOrders', JSON.stringify(purchaseOrders));
+  }, [purchaseOrders]);
 
   useEffect(() => {
     // Check for important alerts when POs change
@@ -131,14 +138,46 @@ export function Purchases() {
   };
 
   const handleExport = () => {
-    toast.success('Purchase Orders exported successfully as CSV');
-  };
-
-  const handlePrint = (po: PurchaseOrder) => {
-    setSelectedPO(po);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    try {
+      console.log('Export button clicked, processing', purchaseOrders.length, 'purchase orders');
+      
+      // Create CSV content
+      const headers = ['PO Number', 'Supplier', 'Date', 'Amount', 'Status', 'Delivery Date'];
+      const csvData = purchaseOrders.map(po => [
+        po.poNumber,
+        po.supplier,
+        po.date,
+        `Rs. ${po.amount.toLocaleString()}`,
+        po.status,
+        po.deliveryDate
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      console.log('CSV content created, length:', csvContent.length);
+      
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      const filename = `purchase-orders-${new Date().toISOString().split('T')[0]}.csv`;
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('CSV file download initiated:', filename);
+      toast.success('Purchase Orders exported successfully as CSV');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export Purchase Orders');
+    }
   };
 
   const openViewDialog = (po: PurchaseOrder) => {
@@ -313,15 +352,6 @@ export function Purchases() {
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            onClick={() => handlePrint(po)}
-                            className="hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                            title="Print PO"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
                             onClick={() => openViewDialog(po)}
                             className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
                             title="View Details"
@@ -425,22 +455,6 @@ export function Purchases() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Hidden Print Component */}
-      {selectedPO && (
-        <div className="hidden print:block">
-          <PurchasePrint 
-            purchase={selectedPO}
-            company={{
-              name: 'Your Company Name',
-              address: '123 Business Street, Colombo',
-              phone: '+94 11 234 5678',
-              email: 'info@yourcompany.com',
-              taxId: 'TAX-12345',
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -573,6 +587,181 @@ function EditPOForm({ po, onClose, onSuccess }: { po: PurchaseOrder; onClose: ()
 }
 
 function PODetail({ po }: { po: PurchaseOrder }) {
+  const handleDownloadPDF = () => {
+    // Create a hidden container for the print content
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to download PDF');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Purchase Order - ${po.poNumber}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 2px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .title { font-size: 20px; font-weight: bold; margin: 20px 0; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+            .detail-item { margin-bottom: 10px; }
+            .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #1A2B4A; }
+            .amount { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+            .status-approved { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .status-draft { background: #e5e7eb; color: #6b7280; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Your Company Name</div>
+            <div style="color: #666;">123 Business Street, Colombo</div>
+            <div style="color: #666;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+          </div>
+          
+          <div class="title">PURCHASE ORDER</div>
+          
+          <div class="details">
+            <div class="detail-item">
+              <div class="label">PO Number</div>
+              <div class="value">${po.poNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Status</div>
+              <div><span class="status status-${po.status}">${po.status.toUpperCase()}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Supplier</div>
+              <div class="value">${po.supplier}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Order Date</div>
+              <div class="value">${po.date}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Delivery Date</div>
+              <div class="value">${po.deliveryDate}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Total Amount</div>
+              <div class="amount">Rs ${po.amount.toLocaleString()}</div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is a computer-generated purchase order and is valid without signature.</p>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load then trigger download
+    setTimeout(() => {
+      printWindow.print();
+      // Close after printing/saving
+      setTimeout(() => printWindow.close(), 500);
+      toast.success('PDF download initiated');
+    }, 250);
+  };
+
+  const handlePrintPDF = () => {
+    // Create a temporary container for print
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print PDF');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Purchase Order - ${po.poNumber}</title>
+          <style>
+            @page { margin: 20mm; }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 2px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .title { font-size: 20px; font-weight: bold; margin: 20px 0; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+            .detail-item { margin-bottom: 10px; }
+            .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #1A2B4A; }
+            .amount { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+            .status-approved { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .status-draft { background: #e5e7eb; color: #6b7280; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Your Company Name</div>
+            <div style="color: #666;">123 Business Street, Colombo</div>
+            <div style="color: #666;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+          </div>
+          
+          <div class="title">PURCHASE ORDER</div>
+          
+          <div class="details">
+            <div class="detail-item">
+              <div class="label">PO Number</div>
+              <div class="value">${po.poNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Status</div>
+              <div><span class="status status-${po.status}">${po.status.toUpperCase()}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Supplier</div>
+              <div class="value">${po.supplier}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Order Date</div>
+              <div class="value">${po.date}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Delivery Date</div>
+              <div class="value">${po.deliveryDate}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Total Amount</div>
+              <div class="amount">Rs ${po.amount.toLocaleString()}</div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is a computer-generated purchase order and is valid without signature.</p>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+      toast.success('Printing initiated');
+    }, 250);
+  };
+
   return (
     <div className="space-y-6">
       <DialogHeader>
@@ -608,10 +797,18 @@ function PODetail({ po }: { po: PurchaseOrder }) {
       <div className="flex gap-3">
         <Button 
           className="flex-1 bg-[#1A2B4A] hover:bg-[#0F1729]"
-          onClick={() => toast.success('PO downloaded as PDF')}
+          onClick={handleDownloadPDF}
         >
           <Download className="h-4 w-4 mr-2" />
           Download PDF
+        </Button>
+        <Button 
+          variant="outline"
+          className="flex-1 border-[#1A2B4A] text-[#1A2B4A] hover:bg-[#1A2B4A] hover:text-white"
+          onClick={handlePrintPDF}
+        >
+          <Printer className="h-4 w-4 mr-2" />
+          Print PDF
         </Button>
       </div>
     </div>

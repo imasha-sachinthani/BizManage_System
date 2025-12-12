@@ -178,8 +178,18 @@ router.post('/',
         notes 
       } = req.body;
 
-      // Use fallback companyId for testing
-      const companyId = req.user?.companyId || 'cm4d4k3xw0001abcd1234567890';
+      // Get companyId from user or first company (for testing)
+      let companyId = req.user?.companyId;
+      if (!companyId) {
+        const firstCompany = await prisma.company.findFirst();
+        companyId = firstCompany?.id;
+      }
+      
+      if (!companyId) {
+        throw new ValidationErrorClass([
+          { field: 'companyId', message: 'No company found. Please create a company first.' },
+        ]);
+      }
       
       // Check if client with same email exists in company
       if (email) {

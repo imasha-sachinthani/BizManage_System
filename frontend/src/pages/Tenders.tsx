@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { TenderPrint } from '../components/TenderPrint';
 import { Tender } from '../types';
 import {
   FileText,
@@ -25,6 +24,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Eye,
+  Download,
 } from 'lucide-react';
 import {
   Select,
@@ -54,10 +55,47 @@ export function Tenders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [printTender, setPrintTender] = useState<Tender | null>(null);
+  const [viewDetailsTender, setViewDetailsTender] = useState<Tender | null>(null);
   const [expandedTender, setExpandedTender] = useState<string | null>(null);
-  const [alerts, setAlerts] = useState<Array<{ type: string; message: string; count: number }>>([]);
+  const [alerts, setAlerts] = useState<Array<{ type: string; message: string; count: number; id: string }>>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Handle alert click to filter tenders
+  const handleAlertClick = (alertId: string) => {
+    const tenderList = document.getElementById('tender-list');
+    
+    switch (alertId) {
+      case 'overdue':
+        setStatusFilter('pending');
+        toast.info('Showing overdue tenders');
+        break;
+      case 'due-soon':
+        setStatusFilter('pending');
+        toast.info('Showing tenders with approaching deadlines');
+        break;
+      case 'bid-security-expiring':
+        setStatusFilter('all');
+        toast.info('Showing tenders with expiring bid securities');
+        break;
+      case 'performance-security-expiring':
+        setStatusFilter('all');
+        toast.info('Showing tenders with expiring performance securities');
+        break;
+      case 'pcai-expiring':
+        setStatusFilter('all');
+        toast.info('Showing tenders with expiring PCAI certificates');
+        break;
+      case 'high-value':
+        setStatusFilter('pending');
+        toast.info('Showing high-value pending tenders');
+        break;
+    }
+    
+    // Scroll to tender list
+    setTimeout(() => {
+      tenderList?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
   // Calculate days to deadline
   const getDaysToDeadline = (deadline: string): number => {
@@ -289,6 +327,7 @@ export function Tenders() {
         type: 'warning',
         message: `${dueSoon.length} tender deadline(s) approaching within 7 days`,
         count: dueSoon.length,
+        id: 'due-soon',
       });
     }
 
@@ -302,6 +341,7 @@ export function Tenders() {
         type: 'error',
         message: `${overdue.length} tender(s) past submission deadline`,
         count: overdue.length,
+        id: 'overdue',
       });
     }
 
@@ -317,6 +357,7 @@ export function Tenders() {
         type: 'warning',
         message: `${bidSecExpiring.length} bid security guarantee(s) expiring within 30 days`,
         count: bidSecExpiring.length,
+        id: 'bid-security-expiring',
       });
     }
 
@@ -332,6 +373,7 @@ export function Tenders() {
         type: 'info',
         message: `${perfSecExpiring.length} performance security guarantee(s) expiring within 30 days`,
         count: perfSecExpiring.length,
+        id: 'performance-security-expiring',
       });
     }
 
@@ -347,6 +389,7 @@ export function Tenders() {
         type: 'info',
         message: `${pca1Expiring.length} PCA1 certificate(s) expiring within 60 days`,
         count: pca1Expiring.length,
+        id: 'pcai-expiring',
       });
     }
 
@@ -357,6 +400,7 @@ export function Tenders() {
         type: 'critical',
         message: `${highValue.length} high-value tender(s) (>Rs 50M) pending submission`,
         count: highValue.length,
+        id: 'high-value',
       });
     }
 
@@ -375,12 +419,190 @@ export function Tenders() {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const handlePrint = (tender: Tender) => {
-    setPrintTender(tender);
+  const handleViewDetails = (tender: Tender) => {
+    setViewDetailsTender(tender);
+  };
+
+  const handleDownloadPDF = () => {
+    if (!viewDetailsTender) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Tender Details - ${viewDetailsTender.tenderNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; margin: 0; }
+            h1 { color: #1A2B4A; text-align: center; margin-bottom: 10px; }
+            h2 { color: #333; text-align: center; margin-bottom: 30px; font-size: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1A2B4A; padding-bottom: 20px; }
+            .info { font-size: 14px; color: #666; }
+            .section { margin: 30px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; page-break-inside: avoid; }
+            .section-title { font-size: 18px; font-weight: bold; color: #1A2B4A; margin-bottom: 15px; background: #f5f5f5; padding: 10px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+            .field { padding: 10px; background: #f9f9f9; border-radius: 5px; }
+            .field-label { font-size: 12px; color: #666; margin-bottom: 3px; }
+            .field-value { font-size: 14px; font-weight: bold; color: #1A2B4A; }
+            .status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+            .status-awarded { background: #10b981; color: white; }
+            .status-pending { background: #f59e0b; color: white; }
+            .status-submitted { background: #3b82f6; color: white; }
+            .status-quotation { background: #8b5cf6; color: white; }
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; color: #666; font-size: 12px; }
+            .description { padding: 15px; background: #f9f9f9; border-left: 4px solid #1A2B4A; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>BizManage Pro Edition</h1>
+            <h2>Tender Details</h2>
+            <p class="info">Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+          
+          <div class="section">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h3 style="margin: 0 0 10px 0; color: #1A2B4A; font-size: 24px;">${viewDetailsTender.tenderNumber}</h3>
+              <h4 style="margin: 0 0 15px 0; color: #333;">${viewDetailsTender.title}</h4>
+              <span class="status status-${viewDetailsTender.status}">${viewDetailsTender.status.toUpperCase()}</span>
+            </div>
+            <div style="text-align: center; font-size: 28px; font-weight: bold; color: #1A2B4A; margin: 20px 0;">
+              ${viewDetailsTender.currency} ${viewDetailsTender.value.toLocaleString()}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Basic Information</div>
+            <div class="grid">
+              <div class="field">
+                <div class="field-label">Client</div>
+                <div class="field-value">${viewDetailsTender.client}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Type</div>
+                <div class="field-value">${viewDetailsTender.type.toUpperCase()}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Location</div>
+                <div class="field-value">${viewDetailsTender.location}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Publish Date</div>
+                <div class="field-value">${viewDetailsTender.publishDate}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Deadline</div>
+                <div class="field-value">${viewDetailsTender.deadline}</div>
+              </div>
+              ${viewDetailsTender.awardDate ? `
+                <div class="field">
+                  <div class="field-label">Award Date</div>
+                  <div class="field-value">${viewDetailsTender.awardDate}</div>
+                </div>
+              ` : ''}
+            </div>
+            ${viewDetailsTender.description ? `
+              <div class="description">
+                <strong>Description:</strong><br/>
+                ${viewDetailsTender.description}
+              </div>
+            ` : ''}
+          </div>
+
+          ${viewDetailsTender.bidSecurityRequired ? `
+            <div class="section">
+              <div class="section-title">Bid Security Details</div>
+              <div class="grid">
+                <div class="field">
+                  <div class="field-label">Amount</div>
+                  <div class="field-value">${viewDetailsTender.currency} ${viewDetailsTender.bidSecurityAmount?.toLocaleString()}</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Type</div>
+                  <div class="field-value">${viewDetailsTender.bidSecurityType?.replace('_', ' ').toUpperCase()}</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Bank Name</div>
+                  <div class="field-value">${viewDetailsTender.bidSecurityBankName || 'N/A'}</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Reference Number</div>
+                  <div class="field-value">${viewDetailsTender.bidSecurityReferenceNumber || 'N/A'}</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Issue Date</div>
+                  <div class="field-value">${viewDetailsTender.bidSecurityIssueDate || 'N/A'}</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Expiry Date</div>
+                  <div class="field-value">${viewDetailsTender.bidSecurityExpiryDate || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          ${viewDetailsTender.performanceSecurityRequired ? `
+            <div class="section">
+              <div class="section-title">Performance Security Details</div>
+              <div class="grid">
+                <div class="field">
+                  <div class="field-label">Amount</div>
+                  <div class="field-value">${viewDetailsTender.currency} ${viewDetailsTender.performanceSecurityAmount?.toLocaleString()}</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Status</div>
+                  <div class="field-value">${viewDetailsTender.performanceSecurityStatus?.replace('_', ' ').toUpperCase() || 'PENDING'}</div>
+                </div>
+                ${viewDetailsTender.performanceSecurityExpiryDate ? `
+                  <div class="field">
+                    <div class="field-label">Expiry Date</div>
+                    <div class="field-value">${viewDetailsTender.performanceSecurityExpiryDate}</div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          ${viewDetailsTender.pcaiRequired ? `
+            <div class="section">
+              <div class="section-title">PCAI Details</div>
+              <div class="grid">
+                <div class="field">
+                  <div class="field-label">Status</div>
+                  <div class="field-value">${viewDetailsTender.pcaiStatus?.toUpperCase() || 'PENDING'}</div>
+                </div>
+                ${viewDetailsTender.pcaiExpiryDate ? `
+                  <div class="field">
+                    <div class="field-label">Expiry Date</div>
+                    <div class="field-value">${viewDetailsTender.pcaiExpiryDate}</div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p>This is a computer-generated tender document.</p>
+            <p>BizManage ERP System - Confidential</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    
     setTimeout(() => {
-      window.print();
-      setPrintTender(null);
-    }, 100);
+      printWindow.focus();
+      printWindow.print();
+      toast.success('Print dialog opened');
+    }, 250);
+  };
+
+  const handlePrintPDF = () => {
+    handleDownloadPDF();
   };
 
   const getStatusIcon = (status: string) => {
@@ -485,6 +707,7 @@ export function Tenders() {
           {alerts.map((alert, index) => (
             <Alert
               key={index}
+              onClick={() => handleAlertClick(alert.id)}
               className={`cursor-pointer hover:shadow-lg transition-all duration-300 ${
                 alert.type === 'error' || alert.type === 'critical'
                   ? 'border-red-500 bg-red-50 hover:bg-red-100'
@@ -675,7 +898,7 @@ export function Tenders() {
       </Card>
 
       {/* Tenders List */}
-      <div className="space-y-4">
+      <div id="tender-list" className="space-y-4">
         {filteredTenders.length === 0 ? (
           <Card className="shadow-lg">
             <CardContent className="p-12 text-center">
@@ -817,24 +1040,13 @@ export function Tenders() {
 
                   <div className="flex flex-col gap-2 ml-4">
                     <Button
-                      onClick={() => handlePrint(tender)}
+                      onClick={() => handleViewDetails(tender)}
                       variant="outline"
                       size="sm"
                       className="whitespace-nowrap"
                     >
-                      <Printer className="h-4 w-4 mr-1" />
-                      Print
-                    </Button>
-                    <Button
-                      onClick={() => setExpandedTender(expandedTender === tender.id ? null : tender.id)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      {expandedTender === tender.id ? (
-                        <><ChevronUp className="h-4 w-4 mr-1" /> Less</>
-                      ) : (
-                        <><ChevronDown className="h-4 w-4 mr-1" /> More</>
-                      )}
+                      <Eye className="h-4 w-4 mr-1" />
+                      More Details
                     </Button>
                   </div>
                 </div>
@@ -844,12 +1056,182 @@ export function Tenders() {
         )}
       </div>
 
-      {/* Hidden Print Component */}
-      {printTender && (
-        <div className="hidden print:block">
-          <TenderPrint tender={printTender} />
-        </div>
-      )}
+      {/* View Details Dialog */}
+      <Dialog open={!!viewDetailsTender} onOpenChange={(open) => !open && setViewDetailsTender(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Tender Details - {viewDetailsTender?.tenderNumber}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-[#1A2B4A] text-white hover:bg-[#0F1729] hover:text-white"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintPDF}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print PDF
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewDetailsTender && (
+            <div className="space-y-6 mt-4">
+              {/* Title and Status */}
+              <div className="text-center p-6 bg-slate-50 rounded-lg">
+                <h3 className="text-2xl font-bold text-[#1A2B4A] mb-2">{viewDetailsTender.title}</h3>
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  {viewDetailsTender.status === 'awarded' && (
+                    <span className="px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold">
+                      AWARDED
+                    </span>
+                  )}
+                  {viewDetailsTender.status === 'pending' && (
+                    <span className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-semibold">
+                      PENDING
+                    </span>
+                  )}
+                  {viewDetailsTender.status === 'submitted' && (
+                    <span className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold">
+                      SUBMITTED
+                    </span>
+                  )}
+                  {viewDetailsTender.status === 'quotation' && (
+                    <span className="px-4 py-2 bg-purple-600 text-white rounded-full text-sm font-semibold">
+                      QUOTATION
+                    </span>
+                  )}
+                  <span className="text-sm px-3 py-1 bg-slate-200 text-slate-700 rounded-full font-semibold">
+                    {viewDetailsTender.type.toUpperCase()}
+                  </span>
+                </div>
+                <p className="text-4xl font-bold text-[#1A2B4A]">
+                  {viewDetailsTender.currency} {viewDetailsTender.value.toLocaleString()}
+                </p>
+              </div>
+
+              {/* Basic Information */}
+              <div className="p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Client</p>
+                    <p className="font-semibold text-[#1A2B4A]">{viewDetailsTender.client}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Location</p>
+                    <p className="font-semibold">{viewDetailsTender.location}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Publish Date</p>
+                    <p className="font-semibold">{viewDetailsTender.publishDate}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded">
+                    <p className="text-xs text-slate-500 mb-1">Deadline</p>
+                    <p className="font-semibold">{viewDetailsTender.deadline}</p>
+                  </div>
+                  {viewDetailsTender.awardDate && (
+                    <div className="p-3 bg-green-50 rounded col-span-2">
+                      <p className="text-xs text-slate-500 mb-1">Award Date</p>
+                      <p className="font-semibold text-green-700">{viewDetailsTender.awardDate}</p>
+                    </div>
+                  )}
+                </div>
+                {viewDetailsTender.description && (
+                  <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r">
+                    <p className="text-sm"><span className="font-semibold text-[#1A2B4A]">Description:</span></p>
+                    <p className="text-sm text-slate-700 mt-2">{viewDetailsTender.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bid Security Details */}
+              {viewDetailsTender.bidSecurityRequired && (
+                <div className="p-4 border rounded-lg bg-amber-50">
+                  <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">Bid Security Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Amount</p>
+                      <p className="font-semibold text-amber-700">{viewDetailsTender.currency} {viewDetailsTender.bidSecurityAmount?.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Type</p>
+                      <p className="font-semibold">{viewDetailsTender.bidSecurityType?.replace('_', ' ').toUpperCase()}</p>
+                    </div>
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Bank Name</p>
+                      <p className="font-semibold">{viewDetailsTender.bidSecurityBankName || 'N/A'}</p>
+                    </div>
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Reference Number</p>
+                      <p className="font-semibold">{viewDetailsTender.bidSecurityReferenceNumber || 'N/A'}</p>
+                    </div>
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Issue Date</p>
+                      <p className="font-semibold">{viewDetailsTender.bidSecurityIssueDate || 'N/A'}</p>
+                    </div>
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Expiry Date</p>
+                      <p className="font-semibold">{viewDetailsTender.bidSecurityExpiryDate || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Performance Security Details */}
+              {viewDetailsTender.performanceSecurityRequired && (
+                <div className="p-4 border rounded-lg bg-green-50">
+                  <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">Performance Security Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Amount</p>
+                      <p className="font-semibold text-green-700">{viewDetailsTender.currency} {viewDetailsTender.performanceSecurityAmount?.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Status</p>
+                      <p className="font-semibold">{viewDetailsTender.performanceSecurityStatus?.replace('_', ' ').toUpperCase() || 'PENDING'}</p>
+                    </div>
+                    {viewDetailsTender.performanceSecurityExpiryDate && (
+                      <div className="p-3 bg-white rounded col-span-2">
+                        <p className="text-xs text-slate-500 mb-1">Expiry Date</p>
+                        <p className="font-semibold">{viewDetailsTender.performanceSecurityExpiryDate}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* PCAI Details */}
+              {viewDetailsTender.pcaiRequired && (
+                <div className="p-4 border rounded-lg bg-purple-50">
+                  <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">PCAI Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-white rounded">
+                      <p className="text-xs text-slate-500 mb-1">Status</p>
+                      <p className="font-semibold text-purple-700">{viewDetailsTender.pcaiStatus?.toUpperCase() || 'PENDING'}</p>
+                    </div>
+                    {viewDetailsTender.pcaiExpiryDate && (
+                      <div className="p-3 bg-white rounded">
+                        <p className="text-xs text-slate-500 mb-1">Expiry Date</p>
+                        <p className="font-semibold">{viewDetailsTender.pcaiExpiryDate}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

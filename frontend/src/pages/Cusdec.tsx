@@ -30,6 +30,7 @@ const Cusdecs = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedCusdec, setSelectedCusdec] = useState<Cusdec | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<CusdecDocument[]>([]);
 
   // Sample CUSDEC data
   const [cusdecs, setCusdecs] = useState<Cusdec[]>([
@@ -226,6 +227,448 @@ const Cusdecs = () => {
     }
   };
 
+  const handleDownloadDocument = (doc: CusdecDocument) => {
+    try {
+      // For mock data, generate a dummy file content
+      let content = '';
+      let mimeType = '';
+      
+      if (doc.type === 'pdf') {
+        // Generate a simple text file as PDF placeholder
+        content = `CUSDEC Document\n\nFile Name: ${doc.name}\nType: PDF Document\nSize: ${doc.fileSize}\nUpload Date: ${doc.uploadDate}\n\nThis is a demo file for ${selectedCusdec?.cusdecNumber || 'CUSDEC'}.\n\nIn production, this would be the actual PDF document.`;
+        mimeType = 'application/pdf';
+      } else if (doc.type === 'excel') {
+        content = `CUSDEC Document\n\nFile Name: ${doc.name}\nType: Excel Spreadsheet\nSize: ${doc.fileSize}\nUpload Date: ${doc.uploadDate}\n\nThis is a demo file.`;
+        mimeType = 'application/vnd.ms-excel';
+      } else if (doc.type === 'image') {
+        content = `CUSDEC Document\n\nFile Name: ${doc.name}\nType: Image File\nSize: ${doc.fileSize}\nUpload Date: ${doc.uploadDate}\n\nThis is a demo file.`;
+        mimeType = 'image/jpeg';
+      } else {
+        content = `CUSDEC Document\n\nFile Name: ${doc.name}\nSize: ${doc.fileSize}\nUpload Date: ${doc.uploadDate}`;
+        mimeType = 'text/plain';
+      }
+      
+      // Create blob and download
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Downloading ${doc.name}`);
+    } catch (error) {
+      toast.error('Failed to download file');
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!selectedCusdec) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to download PDF');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CUSDEC - ${selectedCusdec.cusdecNumber}</title>
+          <style>
+            @page { margin: 20mm; }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 3px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .title { font-size: 22px; font-weight: bold; margin: 20px 0; color: #1A2B4A; }
+            .details-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; }
+            .detail-item { margin-bottom: 10px; }
+            .label { font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; }
+            .value { font-size: 14px; font-weight: 600; color: #1A2B4A; }
+            .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+            .status-released { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .status-inspection { background: #dbeafe; color: #2563eb; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .items-table th { background: #1A2B4A; color: white; padding: 12px; text-align: left; font-size: 12px; }
+            .items-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+            .items-table tr:last-child td { border-bottom: 2px solid #1A2B4A; }
+            .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin: 30px 0; }
+            .summary-section { background: #f8fafc; padding: 15px; border-radius: 8px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; padding: 5px 0; }
+            .summary-label { font-size: 13px; color: #666; }
+            .summary-value { font-size: 14px; font-weight: 600; color: #1A2B4A; }
+            .total-row { border-top: 2px solid #1A2B4A; padding-top: 10px; margin-top: 10px; }
+            .total-value { font-size: 18px; font-weight: bold; color: #dc2626; }
+            .documents { margin: 20px 0; }
+            .doc-item { display: inline-block; margin: 5px 10px 5px 0; padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Your Company Name</div>
+            <div style="color: #666; font-size: 14px;">123 Business Street, Colombo</div>
+            <div style="color: #666; font-size: 14px;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+          </div>
+          
+          <div class="title">CUSTOMS DECLARATION (CUSDEC)</div>
+          
+          <div class="details-grid">
+            <div class="detail-item">
+              <div class="label">CUSDEC Number</div>
+              <div class="value">${selectedCusdec.cusdecNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">PO Number</div>
+              <div class="value">${selectedCusdec.purchaseOrderNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Status</div>
+              <div><span class="status status-${selectedCusdec.status}">${selectedCusdec.status.replace('_', ' ').toUpperCase()}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Supplier</div>
+              <div class="value">${selectedCusdec.supplier}</div>
+              <div style="font-size: 12px; color: #666;">${selectedCusdec.supplierCountry}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Import Date</div>
+              <div class="value">${new Date(selectedCusdec.importDate).toLocaleDateString()}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Clearance Date</div>
+              <div class="value">${selectedCusdec.clearanceDate ? new Date(selectedCusdec.clearanceDate).toLocaleDateString() : 'Pending'}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Port of Entry</div>
+              <div class="value">${selectedCusdec.portOfEntry}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Customs Agent</div>
+              <div class="value">${selectedCusdec.customsAgent}</div>
+              <div style="font-size: 12px; color: #666;">${selectedCusdec.agentContact}</div>
+            </div>
+          </div>
+          
+          <h3 style="margin-top: 30px; color: #1A2B4A;">Import Items</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>HS Code</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Value</th>
+                <th>Duty</th>
+                <th>VAT</th>
+                <th>Total Tax</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${selectedCusdec.items.map(item => `
+                <tr>
+                  <td><strong>${item.description}</strong></td>
+                  <td>${item.hsCode}</td>
+                  <td>${item.quantity} ${item.unit}</td>
+                  <td>Rs ${item.unitPrice.toLocaleString()}</td>
+                  <td>Rs ${item.totalValue.toLocaleString()}</td>
+                  <td>Rs ${item.dutyAmount.toLocaleString()}</td>
+                  <td>Rs ${item.vatAmount.toLocaleString()}</td>
+                  <td><strong>Rs ${item.totalTax.toLocaleString()}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <div class="summary-section">
+              <h4 style="margin-top: 0; color: #1A2B4A;">Value Breakdown</h4>
+              <div class="summary-row">
+                <span class="summary-label">Invoice Value:</span>
+                <span class="summary-value">Rs ${selectedCusdec.invoiceValue.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Freight Charges:</span>
+                <span class="summary-value">Rs ${selectedCusdec.freightCharges.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Insurance:</span>
+                <span class="summary-value">Rs ${selectedCusdec.insuranceCharges.toLocaleString()}</span>
+              </div>
+              <div class="summary-row total-row">
+                <span class="summary-label"><strong>Total CIF Value:</strong></span>
+                <span class="summary-value">Rs ${selectedCusdec.totalCIF.toLocaleString()}</span>
+              </div>
+            </div>
+            
+            <div class="summary-section">
+              <h4 style="margin-top: 0; color: #1A2B4A;">Tax Summary</h4>
+              <div class="summary-row">
+                <span class="summary-label">Customs Duty:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalDuty.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">VAT:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalVAT.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">PAL:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalPAL.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">NBT:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalNBT.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Other Charges:</span>
+                <span class="summary-value">Rs ${selectedCusdec.otherCharges.toLocaleString()}</span>
+              </div>
+              <div class="summary-row total-row">
+                <span class="summary-label"><strong>Grand Total:</strong></span>
+                <span class="total-value">Rs ${selectedCusdec.totalAmount.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          
+          ${selectedCusdec.remarks ? `
+            <div style="margin: 20px 0; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
+              <strong style="color: #92400e;">Remarks:</strong>
+              <p style="margin: 5px 0 0 0; color: #78350f;">${selectedCusdec.remarks}</p>
+            </div>
+          ` : ''}
+          
+          <div class="documents">
+            <h4 style="color: #1A2B4A;">Attached Documents</h4>
+            ${selectedCusdec.documents.map(doc => `
+              <span class="doc-item">📄 ${doc.name} (${doc.fileSize})</span>
+            `).join('')}
+          </div>
+          
+          <div class="footer">
+            <p>This is a computer-generated CUSDEC document.</p>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.print();
+      setTimeout(() => printWindow.close(), 500);
+      toast.success('PDF download initiated');
+    }, 250);
+  };
+
+  const handlePrintDetails = () => {
+    if (!selectedCusdec) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CUSDEC - ${selectedCusdec.cusdecNumber}</title>
+          <style>
+            @page { margin: 20mm; }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 3px solid #1A2B4A; padding-bottom: 20px; margin-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .title { font-size: 22px; font-weight: bold; margin: 20px 0; color: #1A2B4A; }
+            .details-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; }
+            .detail-item { margin-bottom: 10px; }
+            .label { font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; }
+            .value { font-size: 14px; font-weight: 600; color: #1A2B4A; }
+            .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+            .status-released { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .status-inspection { background: #dbeafe; color: #2563eb; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .items-table th { background: #1A2B4A; color: white; padding: 12px; text-align: left; font-size: 12px; }
+            .items-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+            .items-table tr:last-child td { border-bottom: 2px solid #1A2B4A; }
+            .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin: 30px 0; }
+            .summary-section { background: #f8fafc; padding: 15px; border-radius: 8px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; padding: 5px 0; }
+            .summary-label { font-size: 13px; color: #666; }
+            .summary-value { font-size: 14px; font-weight: 600; color: #1A2B4A; }
+            .total-row { border-top: 2px solid #1A2B4A; padding-top: 10px; margin-top: 10px; }
+            .total-value { font-size: 18px; font-weight: bold; color: #dc2626; }
+            .documents { margin: 20px 0; }
+            .doc-item { display: inline-block; margin: 5px 10px 5px 0; padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Your Company Name</div>
+            <div style="color: #666; font-size: 14px;">123 Business Street, Colombo</div>
+            <div style="color: #666; font-size: 14px;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+          </div>
+          
+          <div class="title">CUSTOMS DECLARATION (CUSDEC)</div>
+          
+          <div class="details-grid">
+            <div class="detail-item">
+              <div class="label">CUSDEC Number</div>
+              <div class="value">${selectedCusdec.cusdecNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">PO Number</div>
+              <div class="value">${selectedCusdec.purchaseOrderNumber}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Status</div>
+              <div><span class="status status-${selectedCusdec.status}">${selectedCusdec.status.replace('_', ' ').toUpperCase()}</span></div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Supplier</div>
+              <div class="value">${selectedCusdec.supplier}</div>
+              <div style="font-size: 12px; color: #666;">${selectedCusdec.supplierCountry}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Import Date</div>
+              <div class="value">${new Date(selectedCusdec.importDate).toLocaleDateString()}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Clearance Date</div>
+              <div class="value">${selectedCusdec.clearanceDate ? new Date(selectedCusdec.clearanceDate).toLocaleDateString() : 'Pending'}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Port of Entry</div>
+              <div class="value">${selectedCusdec.portOfEntry}</div>
+            </div>
+            <div class="detail-item">
+              <div class="label">Customs Agent</div>
+              <div class="value">${selectedCusdec.customsAgent}</div>
+              <div style="font-size: 12px; color: #666;">${selectedCusdec.agentContact}</div>
+            </div>
+          </div>
+          
+          <h3 style="margin-top: 30px; color: #1A2B4A;">Import Items</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>HS Code</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Value</th>
+                <th>Duty</th>
+                <th>VAT</th>
+                <th>Total Tax</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${selectedCusdec.items.map(item => `
+                <tr>
+                  <td><strong>${item.description}</strong></td>
+                  <td>${item.hsCode}</td>
+                  <td>${item.quantity} ${item.unit}</td>
+                  <td>Rs ${item.unitPrice.toLocaleString()}</td>
+                  <td>Rs ${item.totalValue.toLocaleString()}</td>
+                  <td>Rs ${item.dutyAmount.toLocaleString()}</td>
+                  <td>Rs ${item.vatAmount.toLocaleString()}</td>
+                  <td><strong>Rs ${item.totalTax.toLocaleString()}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <div class="summary-section">
+              <h4 style="margin-top: 0; color: #1A2B4A;">Value Breakdown</h4>
+              <div class="summary-row">
+                <span class="summary-label">Invoice Value:</span>
+                <span class="summary-value">Rs ${selectedCusdec.invoiceValue.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Freight Charges:</span>
+                <span class="summary-value">Rs ${selectedCusdec.freightCharges.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Insurance:</span>
+                <span class="summary-value">Rs ${selectedCusdec.insuranceCharges.toLocaleString()}</span>
+              </div>
+              <div class="summary-row total-row">
+                <span class="summary-label"><strong>Total CIF Value:</strong></span>
+                <span class="summary-value">Rs ${selectedCusdec.totalCIF.toLocaleString()}</span>
+              </div>
+            </div>
+            
+            <div class="summary-section">
+              <h4 style="margin-top: 0; color: #1A2B4A;">Tax Summary</h4>
+              <div class="summary-row">
+                <span class="summary-label">Customs Duty:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalDuty.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">VAT:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalVAT.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">PAL:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalPAL.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">NBT:</span>
+                <span class="summary-value">Rs ${selectedCusdec.totalNBT.toLocaleString()}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Other Charges:</span>
+                <span class="summary-value">Rs ${selectedCusdec.otherCharges.toLocaleString()}</span>
+              </div>
+              <div class="summary-row total-row">
+                <span class="summary-label"><strong>Grand Total:</strong></span>
+                <span class="total-value">Rs ${selectedCusdec.totalAmount.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          
+          ${selectedCusdec.remarks ? `
+            <div style="margin: 20px 0; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
+              <strong style="color: #92400e;">Remarks:</strong>
+              <p style="margin: 5px 0 0 0; color: #78350f;">${selectedCusdec.remarks}</p>
+            </div>
+          ` : ''}
+          
+          <div class="documents">
+            <h4 style="color: #1A2B4A;">Attached Documents</h4>
+            ${selectedCusdec.documents.map(doc => `
+              <span class="doc-item">📄 ${doc.name} (${doc.fileSize})</span>
+            `).join('')}
+          </div>
+          
+          <div class="footer">
+            <p>This is a computer-generated CUSDEC document.</p>
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+      toast.success('Print dialog opened');
+    }, 250);
+  };
+
   const filteredCusdecs = cusdecs.filter(cusdec => {
     const matchesSearch = 
       cusdec.cusdecNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -255,6 +698,65 @@ const Cusdecs = () => {
   const handleViewDetails = (cusdec: Cusdec) => {
     setSelectedCusdec(cusdec);
     setShowDetailsDialog(true);
+  };
+
+  const handleExport = () => {
+    // Create CSV header
+    const headers = [
+      'CUSDEC Number',
+      'PO Number',
+      'Supplier',
+      'Country',
+      'Import Date',
+      'Port of Entry',
+      'Status',
+      'CIF Value',
+      'Total Duty',
+      'Total VAT',
+      'Total PAL',
+      'Total NBT',
+      'Total Amount',
+      'Items Count'
+    ];
+
+    // Create CSV rows from filtered cusdecs
+    const rows = filteredCusdecs.map(cusdec => [
+      cusdec.cusdecNumber,
+      cusdec.purchaseOrderNumber || '-',
+      cusdec.supplier,
+      cusdec.supplierCountry,
+      new Date(cusdec.importDate).toLocaleDateString(),
+      cusdec.portOfEntry,
+      getStatusLabel(cusdec.status),
+      cusdec.totalCIF,
+      cusdec.totalDuty,
+      cusdec.totalVAT,
+      cusdec.totalPAL,
+      cusdec.totalNBT,
+      cusdec.totalAmount,
+      cusdec.items.length
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `CUSDEC_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('CUSDEC data exported successfully!');
   };
 
   return (
@@ -352,11 +854,66 @@ const Cusdecs = () => {
                   <Upload className="h-10 w-10 text-slate-400 mx-auto mb-3" />
                   <p className="text-sm text-slate-600 mb-2">Drag and drop files here, or click to browse</p>
                   <p className="text-xs text-slate-500">Supports: PDF, Excel, Images (JPG, PNG)</p>
-                  <Button variant="outline" className="mt-3">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const newDocs: CusdecDocument[] = Array.from(files).map((file, index) => ({
+                          id: `${Date.now()}-${index}`,
+                          name: file.name,
+                          type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'excel',
+                          fileUrl: URL.createObjectURL(file),
+                          uploadDate: new Date().toISOString().split('T')[0],
+                          fileSize: `${(file.size / 1024).toFixed(0)} KB`
+                        }));
+                        setUploadedDocuments([...uploadedDocuments, ...newDocs]);
+                        toast.success(`${files.length} file(s) uploaded successfully`);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
                     <Upload className="h-4 w-4 mr-2" />
                     Select Files
                   </Button>
                 </div>
+                {uploadedDocuments.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <Label className="text-sm font-semibold">Uploaded Files ({uploadedDocuments.length})</Label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {uploadedDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <div>
+                              <p className="text-sm font-medium">{doc.name}</p>
+                              <p className="text-xs text-slate-500">{doc.fileSize} • {doc.uploadDate}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setUploadedDocuments(uploadedDocuments.filter(d => d.id !== doc.id));
+                              toast.success('File removed');
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
@@ -421,7 +978,7 @@ const Cusdecs = () => {
                 <SelectItem value="held">Held</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -472,9 +1029,6 @@ const Cusdecs = () => {
                   <Button variant="outline" size="sm" onClick={() => handleViewDetails(cusdec)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handlePrint(cusdec)}>
-                    <Printer className="h-4 w-4" />
-                  </Button>
                   <Button variant="outline" size="sm">
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -487,7 +1041,11 @@ const Cusdecs = () => {
                   <p className="text-sm font-semibold text-slate-700 mb-2">Attached Documents ({cusdec.documents.length})</p>
                   <div className="flex flex-wrap gap-2">
                     {cusdec.documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm hover:bg-slate-100 cursor-pointer">
+                      <div
+                        key={doc.id}
+                        className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm hover:bg-slate-100 cursor-pointer"
+                        onClick={() => handleDownloadDocument(doc)}
+                      >
                         <span>{getFileIcon(doc.type)}</span>
                         <span className="font-medium">{doc.name}</span>
                         <span className="text-xs text-slate-500">({doc.fileSize})</span>
@@ -506,7 +1064,28 @@ const Cusdecs = () => {
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>CUSDEC Details - {selectedCusdec?.cusdecNumber}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>CUSDEC Details - {selectedCusdec?.cusdecNumber}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-[#1A2B4A] text-white hover:bg-[#0F1729] hover:text-white"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintDetails}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print PDF
+                </Button>
+              </div>
+            </DialogTitle>
           </DialogHeader>
           {selectedCusdec && (
             <div className="space-y-6 mt-4">
@@ -634,7 +1213,12 @@ const Cusdecs = () => {
                           <p className="text-xs text-slate-500">{doc.fileSize} • {new Date(doc.uploadDate).toLocaleDateString()}</p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadDocument(doc)}
+                        title="Download file"
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>

@@ -17,6 +17,7 @@ import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import { Toaster } from './components/ui/sonner';
 import { authService } from './services/auth';
+import { LanguageProvider } from './context/LanguageContext';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -152,34 +153,36 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Desktop Sidebar */}
-      {!isMobile && (
-        <DesktopSidebar 
-          currentPage={currentPage} 
-          onNavigate={handleNavigate}
-          onLogout={handleLogout}
-        />
-      )}
+    <LanguageProvider>
+      <div className="min-h-screen bg-slate-50">
+        {/* Desktop Sidebar */}
+        {!isMobile && (
+          <DesktopSidebar 
+            currentPage={currentPage} 
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+          />
+        )}
 
-      {/* Main Content */}
-      <div className={`${!isMobile ? 'ml-72' : ''} min-h-screen flex flex-col`}>
-        {/* Top Bar */}
-        <TopBar title={getPageTitle()} />
+        {/* Main Content */}
+        <div className={`${!isMobile ? 'ml-72' : ''} min-h-screen flex flex-col`}>
+          {/* Top Bar */}
+          <TopBar title={getPageTitle()} />
 
-        {/* Page Content */}
-        <main className={`flex-1 p-4 md:p-6 ${isMobile ? 'pb-24' : ''}`}>
-          {renderPage()}
-        </main>
+          {/* Page Content */}
+          <main className={`flex-1 p-4 md:p-6 ${isMobile ? 'pb-24' : ''}`}>
+            {renderPage()}
+          </main>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        {isMobile && (
+          <MobileNav currentPage={currentPage} onNavigate={handleNavigate} />
+        )}
+
+        {/* Toast Notifications */}
+        <Toaster />
       </div>
-
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <MobileNav currentPage={currentPage} onNavigate={handleNavigate} />
-      )}
-
-      {/* Toast Notifications */}
-      <Toaster />
-    </div>
+    </LanguageProvider>
   );
 }

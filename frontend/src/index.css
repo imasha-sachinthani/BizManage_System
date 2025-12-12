@@ -3294,3 +3294,41 @@
     transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
   }
 }
+
+/* Application Preferences */
+/* Compact View - Reduce padding and spacing */
+html.compact-view {
+  font-size: 14px;
+}
+
+html.compact-view table {
+  font-size: 0.875rem;
+}
+
+html.compact-view .p-4 {
+  padding: 0.75rem !important;
+}
+
+html.compact-view .space-y-4 > * + * {
+  margin-top: 0.75rem !important;
+}
+
+html.compact-view .space-y-6 > * + * {
+  margin-top: 1rem !important;
+}
+
+/* No Animations - Disable all transitions */
+html.no-animations * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Dark Mode Styles */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}

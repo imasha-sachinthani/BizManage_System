@@ -48,8 +48,13 @@ export function LoginSessions() {
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<LoginAlert[]>([]);
 
-  // Mock login sessions data
-  const [sessions] = useState<LoginSession[]>([
+  // Load sessions from localStorage or use default mock data
+  const getInitialSessions = (): LoginSession[] => {
+    const savedSessions = localStorage.getItem('loginSessions');
+    if (savedSessions) {
+      return JSON.parse(savedSessions);
+    }
+    return [
     {
       id: '1',
       userId: 'U001',
@@ -190,7 +195,15 @@ export function LoginSessions() {
         { id: 'a14', action: 'Approved', module: 'Returns', timestamp: '2024-12-11T10:00:00', details: 'Return RET-2024-015' },
       ],
     },
-  ]);
+  ];
+  };
+
+  const [sessions, setSessions] = useState<LoginSession[]>(getInitialSessions());
+
+  // Save sessions to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('loginSessions', JSON.stringify(sessions));
+  }, [sessions]);
 
   // Mock login alerts
   useEffect(() => {
@@ -263,11 +276,34 @@ export function LoginSessions() {
   });
 
   const handleTerminateSession = (sessionId: string) => {
-    toast.success('Session terminated successfully');
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    // Update session to inactive status
+    setSessions(prevSessions =>
+      prevSessions.map(s =>
+        s.id === sessionId
+          ? { ...s, isActive: false, logoutTime: new Date().toISOString() }
+          : s
+      )
+    );
+
+    toast.success(`Session terminated for ${session.userName}`);
   };
 
   const handleBlockUser = (userId: string) => {
-    toast.warning('User access blocked');
+    const userSessions = sessions.filter(s => s.userId === userId);
+    
+    // Terminate all sessions for this user
+    setSessions(prevSessions =>
+      prevSessions.map(s =>
+        s.userId === userId
+          ? { ...s, isActive: false, logoutTime: new Date().toISOString() }
+          : s
+      )
+    );
+
+    toast.warning(`All sessions blocked for user ${userSessions[0]?.userName || userId}`);
   };
 
   const getRoleBadge = (role: string) => {

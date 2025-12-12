@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -50,12 +50,26 @@ import {
   FileText,
   Building2
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function Companies() {
-  const [companies, setCompanies] = useState<Company[]>(mockCompanies);
+  // Load companies from localStorage or use mock data as default
+  const getInitialCompanies = (): Company[] => {
+    const savedCompanies = localStorage.getItem('companies');
+    if (savedCompanies) {
+      return JSON.parse(savedCompanies);
+    }
+    return mockCompanies;
+  };
+
+  const [companies, setCompanies] = useState<Company[]>(getInitialCompanies());
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Save companies to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('companies', JSON.stringify(companies));
+  }, [companies]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);

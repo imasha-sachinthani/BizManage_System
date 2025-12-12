@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -350,7 +350,7 @@ export function Invoices() {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Invoice</DialogTitle>
             <DialogDescription>
@@ -371,7 +371,7 @@ export function Invoices() {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Invoice</DialogTitle>
             <DialogDescription>
@@ -569,7 +569,7 @@ function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => voi
             <SelectTrigger>
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
-            <SelectContent className="z-[100]">
+            <SelectContent>
               {clients.length === 0 ? (
                 <SelectItem value="no-clients" disabled>No clients available</SelectItem>
               ) : (
@@ -597,7 +597,7 @@ function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => voi
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="z-[100]">
+            <SelectContent>
               <SelectItem value="15">Net 15</SelectItem>
               <SelectItem value="30">Net 30</SelectItem>
               <SelectItem value="45">Net 45</SelectItem>
@@ -636,12 +636,12 @@ function CreateInvoiceForm({ onClose, onSuccess, clients }: { onClose: () => voi
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
-                <TableHead className="w-[300px]">Description *</TableHead>
-                <TableHead className="w-[100px] text-center">Qty *</TableHead>
-                <TableHead className="w-[140px] text-right">Unit Price (Rs) *</TableHead>
-                <TableHead className="w-[100px] text-center">VAT %</TableHead>
-                <TableHead className="w-[140px] text-right">Total (Rs)</TableHead>
-                <TableHead className="w-[80px] text-center">Action</TableHead>
+                <TableHead className="w-[300px] text-slate-900">Description *</TableHead>
+                <TableHead className="w-[100px] text-center text-slate-900">Qty *</TableHead>
+                <TableHead className="w-[140px] text-right text-slate-900">Unit Price (Rs) *</TableHead>
+                <TableHead className="w-[100px] text-center text-slate-900">VAT %</TableHead>
+                <TableHead className="w-[140px] text-right text-slate-900">Total (Rs)</TableHead>
+                <TableHead className="w-[80px] text-center text-slate-900">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -914,12 +914,12 @@ function EditInvoiceForm({ invoice, onClose, onSuccess }: { invoice: Invoice | n
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
-                <TableHead className="w-[300px]">Description *</TableHead>
-                <TableHead className="w-[100px] text-center">Qty *</TableHead>
-                <TableHead className="w-[140px] text-right">Unit Price (Rs) *</TableHead>
-                <TableHead className="w-[100px] text-center">VAT %</TableHead>
-                <TableHead className="w-[140px] text-right">Total (Rs)</TableHead>
-                <TableHead className="w-[80px] text-center">Action</TableHead>
+                <TableHead className="w-[300px] text-slate-900">Description *</TableHead>
+                <TableHead className="w-[100px] text-center text-slate-900">Qty *</TableHead>
+                <TableHead className="w-[140px] text-right text-slate-900">Unit Price (Rs) *</TableHead>
+                <TableHead className="w-[100px] text-center text-slate-900">VAT %</TableHead>
+                <TableHead className="w-[140px] text-right text-slate-900">Total (Rs)</TableHead>
+                <TableHead className="w-[80px] text-center text-slate-900">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

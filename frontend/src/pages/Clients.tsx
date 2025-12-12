@@ -104,7 +104,7 @@ export function Clients() {
   const loadClients = async () => {
     try {
       setLoading(true);
-      const result = await clientService.getAllClients({
+      const result = await clientService.getClients({
         limit: 100, // Load more for client list
         search: debouncedSearch,
         status: statusFilter === 'all' ? undefined : statusFilter,
@@ -548,7 +548,7 @@ export function Clients() {
             <div className="space-y-2">
               <Label htmlFor="add-category">Category</Label>
               <Select value={formData.category} onValueChange={(value: any) => setFormData({ ...formData, category: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="add-category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -693,7 +693,7 @@ export function Clients() {
             <div className="space-y-2">
               <Label htmlFor="edit-category">Category</Label>
               <Select value={formData.category} onValueChange={(value: any) => setFormData({ ...formData, category: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="edit-category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
