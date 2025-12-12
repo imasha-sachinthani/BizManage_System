@@ -682,13 +682,22 @@ const Cusdecs = () => {
   });
 
   const stats = [
-    { label: 'Total Declarations', value: cusdecs.length, color: 'from-blue-500 to-blue-700', textColor: 'text-white', icon: FileText },
-    { label: 'Released', value: cusdecs.filter(c => c.status === 'released').length, color: 'from-emerald-500 to-emerald-700', textColor: 'text-white', icon: Package },
-    { label: 'Under Inspection', value: cusdecs.filter(c => c.status === 'under_inspection').length, color: 'from-amber-500 to-amber-700', textColor: 'text-white', icon: Search },
-    { label: 'Total Value (CIF)', value: `Rs. ${(cusdecs.reduce((sum, c) => sum + c.totalCIF, 0) / 1000000).toFixed(2)}M`, color: 'from-purple-500 to-purple-700', textColor: 'text-white', icon: Ship },
-    { label: 'Total Duty Paid', value: `Rs. ${(cusdecs.reduce((sum, c) => sum + c.totalDuty, 0) / 1000).toFixed(0)}K`, color: 'from-red-500 to-red-700', textColor: 'text-white', icon: FileText },
-    { label: 'Total VAT Paid', value: `Rs. ${(cusdecs.reduce((sum, c) => sum + c.totalVAT, 0) / 1000).toFixed(0)}K`, color: 'from-orange-200 to-orange-300', textColor: 'text-gray-900', icon: FileText }
+    { label: 'Total Declarations', value: cusdecs.length, color: 'from-blue-500 to-blue-700', textColor: 'text-white', icon: FileText, filterStatus: 'all' },
+    { label: 'Released', value: cusdecs.filter(c => c.status === 'released').length, color: 'from-emerald-500 to-emerald-700', textColor: 'text-white', icon: Package, filterStatus: 'released' },
+    { label: 'Under Inspection', value: cusdecs.filter(c => c.status === 'under_inspection').length, color: 'from-amber-500 to-amber-700', textColor: 'text-white', icon: Search, filterStatus: 'under_inspection' },
+    { label: 'Total Value (CIF)', value: `Rs. ${(cusdecs.reduce((sum, c) => sum + c.totalCIF, 0) / 1000000).toFixed(2)}M`, color: 'from-purple-500 to-purple-700', textColor: 'text-white', icon: Ship, filterStatus: 'all' },
+    { label: 'Total Duty Paid', value: `Rs. ${(cusdecs.reduce((sum, c) => sum + c.totalDuty, 0) / 1000).toFixed(0)}K`, color: 'from-red-500 to-red-700', textColor: 'text-white', icon: FileText, filterStatus: 'all' },
+    { label: 'Total VAT Paid', value: `Rs. ${(cusdecs.reduce((sum, c) => sum + c.totalVAT, 0) / 1000).toFixed(0)}K`, color: 'from-orange-200 to-orange-300', textColor: 'text-gray-900', icon: FileText, filterStatus: 'all' }
   ];
+
+  const handleStatCardClick = (filterStatus: string, label: string) => {
+    setStatusFilter(filterStatus);
+    if (filterStatus === 'all') {
+      toast.info(`Showing all ${label.toLowerCase()}`);
+    } else {
+      toast.info(`Filtered to show ${label.toLowerCase()} declarations`);
+    }
+  };
 
   const handlePrint = (cusdec: Cusdec) => {
     setSelectedCusdec(cusdec);
@@ -936,7 +945,11 @@ const Cusdecs = () => {
           const Icon = stat.icon;
           const isLastCard = index === stats.length - 1;
           return (
-            <Card key={index} className={`bg-gradient-to-br ${stat.color} border-0 shadow-lg hover:scale-105 transition-transform cursor-pointer`}>
+            <Card 
+              key={index} 
+              className={`bg-gradient-to-br ${stat.color} border-0 shadow-lg hover:scale-105 transition-transform cursor-pointer`}
+              onClick={() => handleStatCardClick(stat.filterStatus, stat.label)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <Icon className={`h-5 w-5 ${stat.textColor} opacity-80`} />

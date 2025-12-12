@@ -320,9 +320,8 @@ export function Returns() {
         </head>
         <body>
           <div class="header">
-            <div class="company-name">Your Company Name</div>
-            <div style="color: #666;">123 Business Street, Colombo</div>
-            <div style="color: #666;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+            <div class="company-name">BizManage Pro Edition</div>
+            <div style="color: #666;">Professional Business Management System</div>
           </div>
           
           <div class="title">RETURN NOTE</div>
@@ -466,9 +465,8 @@ export function Returns() {
         </head>
         <body>
           <div class="header">
-            <div class="company-name">Your Company Name</div>
-            <div style="color: #666;">123 Business Street, Colombo</div>
-            <div style="color: #666;">Phone: +94 11 234 5678 | Email: info@yourcompany.com</div>
+            <div class="company-name">BizManage Pro Edition</div>
+            <div style="color: #666;">Professional Business Management System</div>
           </div>
           
           <div class="title">RETURN NOTE</div>

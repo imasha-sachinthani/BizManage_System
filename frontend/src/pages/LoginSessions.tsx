@@ -270,7 +270,8 @@ export function LoginSessions() {
     const matchesRole = roleFilter === 'all' || session.userRole === roleFilter;
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' && session.isActive) ||
-                         (statusFilter === 'inactive' && !session.isActive);
+                         (statusFilter === 'inactive' && !session.isActive) ||
+                         (statusFilter === 'otp' && session.otpVerified);
     
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -344,6 +345,38 @@ export function LoginSessions() {
     otpVerified: sessions.filter(s => s.otpVerified).length,
   };
 
+  // Handle KPI card clicks to filter sessions
+  const handleStatCardClick = (filterType: string, label: string) => {
+    switch (filterType) {
+      case 'all':
+        setStatusFilter('all');
+        setRoleFilter('all');
+        toast.info(`Showing all ${stats.totalSessions} sessions`);
+        break;
+      case 'active':
+        setStatusFilter('active');
+        setRoleFilter('all');
+        toast.success(`Showing ${stats.activeSessions} active sessions`);
+        break;
+      case 'inactive':
+        setStatusFilter('inactive');
+        setRoleFilter('all');
+        toast.info(`Showing inactive sessions`);
+        break;
+      case 'otp':
+        setStatusFilter('otp');
+        setRoleFilter('all');
+        toast.success(`Showing ${stats.otpVerified} OTP verified sessions`);
+        break;
+      case 'unusual':
+        toast.warning(`${stats.unusualLogins} unusual location(s) detected - Check security alerts above`);
+        break;
+      case 'blocked':
+        toast.error(`${stats.blockedAttempts} blocked attempt(s) - Check security alerts above`);
+        break;
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
@@ -389,7 +422,10 @@ export function LoginSessions() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <Card className="bg-gradient-to-br from-sky-500 via-blue-600 to-blue-700 text-blue-50">
+        <Card 
+          className="bg-gradient-to-br from-sky-500 via-blue-600 to-blue-700 text-blue-50 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => handleStatCardClick('all', 'Total Sessions')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="p-2 bg-blue-900/30 rounded-lg backdrop-blur-sm">
@@ -402,7 +438,10 @@ export function LoginSessions() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-500 via-green-600 to-green-700 text-emerald-50">
+        <Card 
+          className="bg-gradient-to-br from-emerald-500 via-green-600 to-green-700 text-emerald-50 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => handleStatCardClick('active', 'Active Sessions')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="p-2 bg-green-900/30 rounded-lg backdrop-blur-sm">
@@ -415,7 +454,10 @@ export function LoginSessions() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-indigo-500 via-violet-600 to-purple-700 text-indigo-50">
+        <Card 
+          className="bg-gradient-to-br from-indigo-500 via-violet-600 to-purple-700 text-indigo-50 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => handleStatCardClick('all', 'Unique Users')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="p-2 bg-purple-900/30 rounded-lg backdrop-blur-sm">
@@ -428,7 +470,10 @@ export function LoginSessions() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-teal-500 via-cyan-600 to-teal-700 text-teal-50">
+        <Card 
+          className="bg-gradient-to-br from-teal-500 via-cyan-600 to-teal-700 text-teal-50 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => handleStatCardClick('otp', 'OTP Verified')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="p-2 bg-teal-900/30 rounded-lg backdrop-blur-sm">
@@ -441,7 +486,10 @@ export function LoginSessions() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-amber-500 via-orange-600 to-orange-700 text-amber-50">
+        <Card 
+          className="bg-gradient-to-br from-amber-500 via-orange-600 to-orange-700 text-amber-50 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => handleStatCardClick('unusual', 'Unusual Locations')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="p-2 bg-orange-900/30 rounded-lg backdrop-blur-sm">
@@ -454,7 +502,10 @@ export function LoginSessions() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-red-500 via-rose-600 to-red-700 text-red-50">
+        <Card 
+          className="bg-gradient-to-br from-red-500 via-rose-600 to-red-700 text-red-50 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => handleStatCardClick('blocked', 'Blocked Attempts')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="p-2 bg-red-900/30 rounded-lg backdrop-blur-sm">

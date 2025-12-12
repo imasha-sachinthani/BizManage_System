@@ -21,7 +21,8 @@ import {
   Settings,
   Mail,
   LayoutDashboard,
-  Printer
+  Printer,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
@@ -44,6 +45,10 @@ export function Settings() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isConfigureRoleOpen, setIsConfigureRoleOpen] = useState(false);
+  const [isFiscalYearExpanded, setIsFiscalYearExpanded] = useState(false);
+  const [isDocumentPrintingExpanded, setIsDocumentPrintingExpanded] = useState(false);
+  const [isEmailTemplateExpanded, setIsEmailTemplateExpanded] = useState(false);
+  const [isDashboardCustomizationExpanded, setIsDashboardCustomizationExpanded] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Staff' });
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedRole, setSelectedRole] = useState<any>(null);
@@ -794,12 +799,21 @@ export function Settings() {
 
           {/* Fiscal Year & Tax Settings */}
           <Card className="shadow-lg border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-emerald-50 to-green-50">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-emerald-600" />
-                Fiscal Year & Tax Settings
+            <CardHeader 
+              className="bg-gradient-to-r from-emerald-50 to-green-50 cursor-pointer hover:from-emerald-100 hover:to-green-100 transition-all"
+              onClick={() => setIsFiscalYearExpanded(!isFiscalYearExpanded)}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-600" />
+                  Fiscal Year & Tax Settings
+                </div>
+                <ChevronDown 
+                  className={`h-5 w-5 text-emerald-600 transition-transform ${isFiscalYearExpanded ? 'rotate-180' : ''}`}
+                />
               </CardTitle>
             </CardHeader>
+            {isFiscalYearExpanded && (
             <CardContent className="space-y-6 mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -865,17 +879,39 @@ export function Settings() {
                 </div>
                 <Switch defaultChecked />
               </div>
+
+              <div className="flex justify-end mt-6">
+                <Button 
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white transition-all duration-300"
+                  onClick={() => {
+                    toast.success('Fiscal year & tax settings saved successfully');
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Tax Settings
+                </Button>
+              </div>
             </CardContent>
+            )}
           </Card>
 
           {/* Document & Printing Preferences */}
           <Card className="shadow-lg border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-              <CardTitle className="flex items-center gap-2">
-                <Printer className="h-5 w-5 text-blue-600" />
-                Document & Printing Preferences
+            <CardHeader 
+              className="bg-gradient-to-r from-blue-50 to-cyan-50 cursor-pointer hover:from-blue-100 hover:to-cyan-100 transition-all"
+              onClick={() => setIsDocumentPrintingExpanded(!isDocumentPrintingExpanded)}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Printer className="h-5 w-5 text-blue-600" />
+                  Document & Printing Preferences
+                </div>
+                <ChevronDown 
+                  className={`h-5 w-5 text-blue-600 transition-transform ${isDocumentPrintingExpanded ? 'rotate-180' : ''}`}
+                />
               </CardTitle>
             </CardHeader>
+            {isDocumentPrintingExpanded && (
             <CardContent className="space-y-6 mt-6">
               <div className="space-y-4">
                 <h4 className="font-semibold">Document Numbering</h4>
@@ -963,17 +999,39 @@ export function Settings() {
                 </div>
                 <Switch defaultChecked />
               </div>
+
+              <div className="flex justify-end mt-6">
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+                  onClick={() => {
+                    toast.success('Document & printing preferences saved successfully');
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Document Settings
+                </Button>
+              </div>
             </CardContent>
+            )}
           </Card>
 
           {/* Email Templates & Communication */}
           <Card className="shadow-lg border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50">
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-orange-600" />
-                Email Templates & Communication
+            <CardHeader 
+              className="bg-gradient-to-r from-orange-50 to-amber-50 cursor-pointer hover:from-orange-100 hover:to-amber-100 transition-all"
+              onClick={() => setIsEmailTemplateExpanded(!isEmailTemplateExpanded)}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-orange-600" />
+                  Email Templates & Communication
+                </div>
+                <ChevronDown 
+                  className={`h-5 w-5 text-orange-600 transition-transform ${isEmailTemplateExpanded ? 'rotate-180' : ''}`}
+                />
               </CardTitle>
             </CardHeader>
+            {isEmailTemplateExpanded && (
             <CardContent className="space-y-6 mt-6">
               <div className="space-y-4">
                 <h4 className="text-base font-semibold">Email Settings</h4>
@@ -1037,17 +1095,39 @@ export function Settings() {
                   <p className="text-xs text-slate-500">Automatically appended to all outgoing emails</p>
                 </div>
               </div>
+
+              <div className="flex justify-end mt-6">
+                <Button 
+                  className="bg-orange-600 hover:bg-orange-700 text-white transition-all duration-300"
+                  onClick={() => {
+                    toast.success('Email templates & communication settings saved successfully');
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Email Settings
+                </Button>
+              </div>
             </CardContent>
+            )}
           </Card>
 
           {/* Dashboard Customization */}
           <Card className="shadow-lg border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
-              <CardTitle className="flex items-center gap-2">
-                <LayoutDashboard className="h-5 w-5 text-indigo-600" />
-                Dashboard Customization
+            <CardHeader 
+              className="bg-gradient-to-r from-indigo-50 to-purple-50 cursor-pointer hover:from-indigo-100 hover:to-purple-100 transition-all"
+              onClick={() => setIsDashboardCustomizationExpanded(!isDashboardCustomizationExpanded)}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LayoutDashboard className="h-5 w-5 text-indigo-600" />
+                  Dashboard Customization
+                </div>
+                <ChevronDown 
+                  className={`h-5 w-5 text-indigo-600 transition-transform ${isDashboardCustomizationExpanded ? 'rotate-180' : ''}`}
+                />
               </CardTitle>
             </CardHeader>
+            {isDashboardCustomizationExpanded && (
             <CardContent className="space-y-6 mt-6">
               <div className="space-y-4">
                 <h4 className="text-base font-semibold">Dashboard Widgets</h4>
@@ -1158,7 +1238,20 @@ export function Settings() {
                   </div>
                 </div>
               </div>
+
+              <div className="flex justify-end mt-6">
+                <Button 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-300"
+                  onClick={() => {
+                    toast.success('Dashboard customization settings saved successfully');
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Dashboard Settings
+                </Button>
+              </div>
             </CardContent>
+            )}
           </Card>
 
           <div className="flex justify-end">

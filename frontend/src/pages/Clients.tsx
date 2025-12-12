@@ -51,11 +51,14 @@ import {
   FileText,
   User,
   Loader2,
-  Eye
+  Eye,
+  FileSpreadsheet,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDebounce } from '../hooks/useDebounce';
 import { ClientDetail } from '../components/ClientDetail';
+import { exportToExcel } from '../utils/exportUtils';
 
 export function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -65,6 +68,7 @@ export function Clients() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isAllClientsDialogOpen, setIsAllClientsDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -321,8 +325,15 @@ export function Clients() {
 
       {/* Clients Table */}
       <Card className="shadow-lg border-slate-200">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>All Clients</CardTitle>
+          <Button
+            onClick={() => setIsAllClientsDialogOpen(true)}
+            className="bg-gradient-to-r from-[#1A2B4A] to-[#2D4A7C] hover:from-[#2D4A7C] hover:to-[#1A2B4A] text-white"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Client Details
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -806,6 +817,168 @@ export function Clients() {
             <DialogTitle>Client Details</DialogTitle>
           </DialogHeader>
           {selectedClient && <ClientDetail client={selectedClient} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* All Clients Details Dialog */}
+      <Dialog open={isAllClientsDialogOpen} onOpenChange={setIsAllClientsDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1A2B4A]">All Clients Details</DialogTitle>
+            <DialogDescription>
+              Complete list of all registered clients with full details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Export Button */}
+            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg">
+              <div>
+                <p className="font-semibold text-lg">Total Clients: {clients.length}</p>
+                <p className="text-sm text-slate-600">
+                  Active: {clients.filter(c => c.isActive).length} | 
+                  Inactive: {clients.filter(c => !c.isActive).length}
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  const exportData = clients.map(client => ({
+                    'Client Code': client.code || '',
+                    'Client Name': client.name,
+                    'Email': client.email || '',
+                    'Phone': client.phone || '',
+                    'Mobile': client.mobile || '',
+                    'Address': client.address || '',
+                    'City': client.city || '',
+                    'Country': client.country || '',
+                    'Tax ID': client.taxId || '',
+                    'Category': client.category || '',
+                    'Credit Limit': client.creditLimit || 0,
+                    'Payment Terms': client.paymentTerms || 30,
+                    'Status': client.isActive ? 'Active' : 'Inactive',
+                    'Total Invoices': client._count?.invoices || 0,
+                    'Notes': client.notes || '',
+                  }));
+                  exportToExcel(exportData, `All_Clients_${new Date().toISOString().split('T')[0]}`);
+                  toast.success('Clients data exported to Excel');
+                }}
+                className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export to Excel
+              </Button>
+            </div>
+
+            {/* Clients List */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="max-h-[60vh] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-slate-100 z-10">
+                    <TableRow>
+                      <TableHead className="font-bold">Code</TableHead>
+                      <TableHead className="font-bold">Client Name</TableHead>
+                      <TableHead className="font-bold">Contact Info</TableHead>
+                      <TableHead className="font-bold">Address</TableHead>
+                      <TableHead className="font-bold">Tax ID</TableHead>
+                      <TableHead className="font-bold">Category</TableHead>
+                      <TableHead className="font-bold">Credit Limit</TableHead>
+                      <TableHead className="font-bold">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clients.map((client) => (
+                      <TableRow key={client.id} className="hover:bg-slate-50">
+                        <TableCell className="font-mono text-sm">{client.code || '-'}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-semibold">{client.name}</div>
+                            {client._count && (
+                              <div className="text-xs text-slate-500">
+                                {client._count.invoices} invoice{client._count.invoices !== 1 ? 's' : ''}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1 text-sm">
+                            {client.email && (
+                              <div className="flex items-center gap-1">
+                                <Mail className="h-3 w-3 text-slate-400" />
+                                {client.email}
+                              </div>
+                            )}
+                            {client.phone && (
+                              <div className="flex items-center gap-1">
+                                <Phone className="h-3 w-3 text-slate-400" />
+                                {client.phone}
+                              </div>
+                            )}
+                            {client.mobile && (
+                              <div className="flex items-center gap-1 text-slate-600">
+                                <Phone className="h-3 w-3 text-slate-400" />
+                                M: {client.mobile}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {client.address && <div>{client.address}</div>}
+                            {(client.city || client.country) && (
+                              <div className="text-slate-600">
+                                {[client.city, client.country].filter(Boolean).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-mono text-sm">{client.taxId || '-'}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline"
+                            className={
+                              client.category === 'VIP' 
+                                ? 'bg-purple-50 text-purple-700 border-purple-300'
+                                : client.category === 'NEW'
+                                ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                : 'bg-slate-50 text-slate-700 border-slate-300'
+                            }
+                          >
+                            {client.category || 'REGULAR'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {client.creditLimit ? `${client.creditLimit.toLocaleString()}` : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={client.isActive ? 'default' : 'secondary'}
+                            className={
+                              client.isActive
+                                ? 'bg-green-100 text-green-800 border-green-300'
+                                : 'bg-slate-100 text-slate-600 border-slate-300'
+                            }
+                          >
+                            {client.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsAllClientsDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -29,6 +29,47 @@ export function Reports() {
   const [financialPeriod, setFinancialPeriod] = useState('annual-2024');
   const [showViewReportDialog, setShowViewReportDialog] = useState(false);
 
+  const handleKPICardClick = (type: string) => {
+    switch(type) {
+      case 'sales':
+        setActiveTab('sales');
+        toast.success('Showing Sales Report details');
+        // Scroll to tabs section
+        setTimeout(() => {
+          document.querySelector('[role="tablist"]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+        break;
+      case 'purchases':
+        setActiveTab('purchases');
+        toast.success('Showing Purchases Report details');
+        setTimeout(() => {
+          document.querySelector('[role="tablist"]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+        break;
+      case 'vat-collected':
+        setActiveTab('vat');
+        toast.success('Showing VAT Report - Collected details');
+        setTimeout(() => {
+          document.querySelector('[role="tablist"]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+        break;
+      case 'vat-paid':
+        setActiveTab('purchases');
+        toast.success('Showing Purchases with VAT Paid details');
+        setTimeout(() => {
+          document.querySelector('[role="tablist"]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+        break;
+      case 'vat-payable':
+        setActiveTab('vat');
+        toast.success('Showing VAT Payable calculation in VAT Report');
+        setTimeout(() => {
+          document.querySelector('[role="tablist"]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+        break;
+    }
+  };
+
   const auditData = {
     revenue: 45000000,
     expenses: 32000000,
@@ -593,7 +634,7 @@ export function Reports() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="vat" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
           <TabsTrigger value="vat">VAT Report</TabsTrigger>
           <TabsTrigger value="sales">Sales Report</TabsTrigger>

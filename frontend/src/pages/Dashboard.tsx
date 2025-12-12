@@ -3,7 +3,7 @@ import { DashboardChart } from '../components/DashboardChart';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { StatusBadge } from '../components/StatusBadge';
 import { revenueData, statusDistribution, mockInvoices } from '../lib/mockData';
-import { ArrowRight, TrendingUp, FileText, Plus, Wallet, DollarSign, Users, Settings, Trash2, Edit, X, Package, Building, Smartphone, Laptop, Car, Wrench } from 'lucide-react';
+import { ArrowRight, TrendingUp, FileText, Plus, Wallet, DollarSign, Users, Settings, Trash2, Edit, X, Package, Building, Smartphone, Laptop, Car, Wrench, Download, Printer } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -113,6 +113,11 @@ export function Dashboard() {
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isAddAssetCategoryOpen, setIsAddAssetCategoryOpen] = useState(false);
+  const [isViewAllCostingsOpen, setIsViewAllCostingsOpen] = useState(false);
+  const [isLinkQuotationsOpen, setIsLinkQuotationsOpen] = useState(false);
+  const [isViewAllExpensesOpen, setIsViewAllExpensesOpen] = useState(false);
+  const [isViewAllAssetsOpen, setIsViewAllAssetsOpen] = useState(false);
+  const [isViewAllInvoicesOpen, setIsViewAllInvoicesOpen] = useState(false);
   const [newAsset, setNewAsset] = useState({
     category: '',
     name: '',
@@ -289,7 +294,331 @@ export function Dashboard() {
   const totalEstimatedCost = costings.reduce((sum, c) => sum + c.estimatedCost, 0);
   const totalActualCost = costings.reduce((sum, c) => sum + c.actualCost, 0);
   const totalVariance = totalActualCost - totalEstimatedCost;
-  const costingsWithActual = costings.filter(c => c.actualCost > 0).length;  
+  const costingsWithActual = costings.filter(c => c.actualCost > 0).length;
+
+  // PDF Generation Functions
+  const handleDownloadPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to download PDF');
+      return;
+    }
+
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    const logoHtml = companyLogo.startsWith('data:') || companyLogo.startsWith('http') 
+      ? `<img src="${companyLogo}" alt="Logo" style="width: 60px; height: 60px; object-fit: contain; margin-right: 15px;">` 
+      : `<div style="width: 60px; height: 60px; font-size: 40px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">${companyLogo}</div>`;
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Dashboard Report - ${companyName}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 3px solid ${companyColor}; padding-bottom: 20px; margin-bottom: 20px; display: flex; align-items: center; }
+            .header-content { flex: 1; }
+            .company-name { font-size: 28px; font-weight: bold; color: ${companyColor}; margin-bottom: 5px; }
+            .subtitle { color: #666; font-size: 14px; }
+            .title { font-size: 22px; font-weight: bold; margin: 20px 0; color: #1A2B4A; }
+            .section { margin: 30px 0; }
+            .section-title { font-size: 18px; font-weight: bold; color: #1A2B4A; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+            .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+            .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
+            .stat-value { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+            .kpi-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
+            .kpi-title { font-size: 12px; color: #666; margin-bottom: 8px; }
+            .kpi-value { font-size: 20px; font-weight: bold; color: #1A2B4A; }
+            .expense-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+            .expense-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+            .expense-category { font-size: 14px; font-weight: 600; color: #1A2B4A; margin-bottom: 5px; }
+            .expense-amount { font-size: 18px; font-weight: bold; color: #059669; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            ${logoHtml}
+            <div class="header-content">
+              <div class="company-name">${companyName}</div>
+              <div class="subtitle">Dashboard Report • Generated on ${currentDate}</div>
+            </div>
+          </div>
+          
+          <div class="title">DASHBOARD OVERVIEW</div>
+          
+          <div class="section">
+            <div class="section-title">Key Performance Indicators</div>
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-title">Total Revenue</div>
+                <div class="kpi-value">LKR ${totalRevenue.toLocaleString()}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Total Expenses</div>
+                <div class="kpi-value">LKR ${totalExpenses.toLocaleString()}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Net Profit</div>
+                <div class="kpi-value">LKR ${(totalRevenue - totalExpenses).toLocaleString()}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Active Clients</div>
+                <div class="kpi-value">24</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Invoice Summary</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">248</div>
+                <div class="stat-label">Total Invoices</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">186</div>
+                <div class="stat-label">Paid Invoices</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">62</div>
+                <div class="stat-label">Pending Invoices</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Expense Summary by Category</div>
+            <div class="expense-grid">
+              ${expenseCategories.map(cat => `
+                <div class="expense-card">
+                  <div class="expense-category">${cat.name}</div>
+                  <div class="expense-amount">LKR ${getTotalByCategory(cat.name).toLocaleString()}</div>
+                </div>
+              `).join('')}
+            </div>
+            <div class="stats-grid" style="margin-top: 20px;">
+              <div class="stat-card">
+                <div class="stat-value">LKR ${totalExpensesPaid.toLocaleString()}</div>
+                <div class="stat-label">Total Paid</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">LKR ${totalExpensesPending.toLocaleString()}</div>
+                <div class="stat-label">Total Pending</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${expenses.length}</div>
+                <div class="stat-label">Total Expenses</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Asset Overview</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">${assets.length}</div>
+                <div class="stat-label">Total Assets</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">LKR ${assets.reduce((sum, a) => sum + a.value, 0).toLocaleString()}</div>
+                <div class="stat-label">Total Value</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${assets.filter(a => a.status === 'active').length}</div>
+                <div class="stat-label">Active Assets</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Dashboard Report • ${companyName}</p>
+            <p>Generated on ${currentDate}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    toast.success('Dashboard PDF opened in new window');
+  };
+
+  const handlePrintPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print PDF');
+      return;
+    }
+
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    const logoHtml = companyLogo.startsWith('data:') || companyLogo.startsWith('http') 
+      ? `<img src="${companyLogo}" alt="Logo" style="width: 60px; height: 60px; object-fit: contain; margin-right: 15px;">` 
+      : `<div style="width: 60px; height: 60px; font-size: 40px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">${companyLogo}</div>`;
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Dashboard Report - ${companyName}</title>
+          <style>
+            @page { margin: 20mm; }
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            .header { border-bottom: 3px solid ${companyColor}; padding-bottom: 20px; margin-bottom: 20px; display: flex; align-items: center; }
+            .header-content { flex: 1; }
+            .company-name { font-size: 28px; font-weight: bold; color: ${companyColor}; margin-bottom: 5px; }
+            .subtitle { color: #666; font-size: 14px; }
+            .title { font-size: 22px; font-weight: bold; margin: 20px 0; color: #1A2B4A; }
+            .section { margin: 30px 0; }
+            .section-title { font-size: 18px; font-weight: bold; color: #1A2B4A; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+            .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+            .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
+            .stat-value { font-size: 24px; font-weight: bold; color: #1A2B4A; }
+            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+            .kpi-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
+            .kpi-title { font-size: 12px; color: #666; margin-bottom: 8px; }
+            .kpi-value { font-size: 20px; font-weight: bold; color: #1A2B4A; }
+            .expense-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+            .expense-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+            .expense-category { font-size: 14px; font-weight: 600; color: #1A2B4A; margin-bottom: 5px; }
+            .expense-amount { font-size: 18px; font-weight: bold; color: #059669; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            ${logoHtml}
+            <div class="header-content">
+              <div class="company-name">${companyName}</div>
+              <div class="subtitle">Dashboard Report • Generated on ${currentDate}</div>
+            </div>
+          </div>
+          
+          <div class="title">DASHBOARD OVERVIEW</div>
+          
+          <div class="section">
+            <div class="section-title">Key Performance Indicators</div>
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-title">Total Revenue</div>
+                <div class="kpi-value">LKR ${totalRevenue.toLocaleString()}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Total Expenses</div>
+                <div class="kpi-value">LKR ${totalExpenses.toLocaleString()}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Net Profit</div>
+                <div class="kpi-value">LKR ${(totalRevenue - totalExpenses).toLocaleString()}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Active Clients</div>
+                <div class="kpi-value">24</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Invoice Summary</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">248</div>
+                <div class="stat-label">Total Invoices</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">186</div>
+                <div class="stat-label">Paid Invoices</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">62</div>
+                <div class="stat-label">Pending Invoices</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Expense Summary by Category</div>
+            <div class="expense-grid">
+              ${expenseCategories.map(cat => `
+                <div class="expense-card">
+                  <div class="expense-category">${cat.name}</div>
+                  <div class="expense-amount">LKR ${getTotalByCategory(cat.name).toLocaleString()}</div>
+                </div>
+              `).join('')}
+            </div>
+            <div class="stats-grid" style="margin-top: 20px;">
+              <div class="stat-card">
+                <div class="stat-value">LKR ${totalExpensesPaid.toLocaleString()}</div>
+                <div class="stat-label">Total Paid</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">LKR ${totalExpensesPending.toLocaleString()}</div>
+                <div class="stat-label">Total Pending</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${expenses.length}</div>
+                <div class="stat-label">Total Expenses</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Asset Overview</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">${assets.length}</div>
+                <div class="stat-label">Total Assets</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">LKR ${assets.reduce((sum, a) => sum + a.value, 0).toLocaleString()}</div>
+                <div class="stat-label">Total Value</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${assets.filter(a => a.status === 'active').length}</div>
+                <div class="stat-label">Active Assets</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Dashboard Report • ${companyName}</p>
+            <p>Generated on ${currentDate}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.print();
+      setTimeout(() => {
+        printWindow.close();
+      }, 500);
+    }, 250);
+    
+    toast.success('Print dialog opened');
+  };  
   
   return (
     <div className="space-y-6">
@@ -314,6 +643,15 @@ export function Dashboard() {
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">Dashboard Overview • Last updated: Just now</p>
               </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleDownloadPDF}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
             </div>
           </div>
           <button
@@ -486,15 +824,11 @@ export function Dashboard() {
 
       {/* Invoice Management Section */}
       <Card className="shadow-lg border-slate-200 border-l-4 border-l-blue-600">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div>
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Invoice Management</CardTitle>
             <p className="text-sm text-slate-600 mt-1">Create, manage and track all your invoice</p>
           </div>
-          <Button className="bg-[#1A2B4A] hover:bg-[#1A2B4A]/90 text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            New Invoice
-          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -513,9 +847,13 @@ export function Dashboard() {
           </div>
           
           <div className="flex justify-center mt-6">
-            <Button variant="outline" className="border-[#1A2B4A] text-[#1A2B4A] hover:bg-[#1A2B4A] hover:text-white">
+            <Button 
+              variant="outline" 
+              className="border-[#1A2B4A] text-[#1A2B4A] hover:bg-[#1A2B4A] hover:text-white"
+              onClick={() => setIsViewAllInvoicesOpen(true)}
+            >
               <FileText className="h-4 w-4 mr-2" />
-              Manage All Invoices
+              View All Invoices
             </Button>
           </div>
         </CardContent>
@@ -732,7 +1070,11 @@ export function Dashboard() {
           </div>
 
           <div className="flex justify-center mt-6">
-            <Button variant="outline" className="border-slate-600 text-slate-700 hover:bg-slate-50">
+            <Button 
+              variant="outline" 
+              className="border-slate-600 text-slate-700 hover:bg-slate-50"
+              onClick={() => setIsViewAllExpensesOpen(true)}
+            >
               <FileText className="h-4 w-4 mr-2" />
               View All Expenses
             </Button>
@@ -969,7 +1311,11 @@ export function Dashboard() {
           </div>
 
           <div className="flex justify-center mt-6">
-            <Button variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+            <Button 
+              variant="outline" 
+              className="border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+              onClick={() => setIsViewAllAssetsOpen(true)}
+            >
               <Package className="h-4 w-4 mr-2" />
               View All Assets
             </Button>
@@ -1170,11 +1516,19 @@ export function Dashboard() {
           </div>
 
           <div className="flex justify-center mt-6 gap-3">
-            <Button variant="outline" className="border-slate-600 text-slate-700 hover:bg-slate-50">
+            <Button 
+              variant="outline" 
+              className="border-slate-600 text-slate-700 hover:bg-slate-50"
+              onClick={() => setIsViewAllCostingsOpen(true)}
+            >
               <DollarSign className="h-4 w-4 mr-2" />
               View All Costings
             </Button>
-            <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+            <Button 
+              variant="outline" 
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+              onClick={() => setIsLinkQuotationsOpen(true)}
+            >
               <FileText className="h-4 w-4 mr-2" />
               Link to Quotations
             </Button>
@@ -1253,6 +1607,348 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* View All Costings Dialog */}
+      <Dialog open={isViewAllCostingsOpen} onOpenChange={setIsViewAllCostingsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-slate-800">All Product & Actual Costing Records</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Estimated</p>
+                <p className="text-2xl font-bold text-emerald-700">Rs {totalEstimatedCost.toLocaleString()}</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Actual</p>
+                <p className="text-2xl font-bold text-blue-700">Rs {totalActualCost.toLocaleString()}</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Variance</p>
+                <p className={`text-2xl font-bold ${totalVariance > 0 ? 'text-red-600' : totalVariance < 0 ? 'text-green-600' : 'text-slate-700'}`}>
+                  {totalVariance > 0 ? '+' : ''}Rs {totalVariance.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {costings.map((costing) => {
+                const variancePercent = costing.estimatedCost ? ((costing.variance / costing.estimatedCost) * 100).toFixed(1) : '0';
+                const isOverBudget = costing.variance > 0;
+                const isUnderBudget = costing.variance < 0;
+                
+                return (
+                  <div key={costing.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-semibold text-lg text-slate-800">{costing.productName}</h4>
+                        {costing.linkedQuotation && (
+                          <p className="text-sm text-blue-600">
+                            <FileText className="h-3 w-3 inline mr-1" />
+                            {costing.linkedQuotation}
+                          </p>
+                        )}
+                      </div>
+                      {costing.actualCost > 0 && (
+                        <Badge variant={isOverBudget ? "destructive" : isUnderBudget ? "default" : "secondary"}>
+                          {isOverBudget ? `Over ${variancePercent}%` : isUnderBudget ? `Under ${Math.abs(parseFloat(variancePercent))}%` : 'On Budget'}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-slate-500">Estimated Cost</p>
+                        <p className="font-semibold">Rs {costing.estimatedCost.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Actual Cost</p>
+                        <p className="font-semibold text-blue-700">
+                          Rs {costing.actualCost > 0 ? costing.actualCost.toLocaleString() : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Variance</p>
+                        <p className={`font-semibold ${isOverBudget ? 'text-red-600' : isUnderBudget ? 'text-green-600' : 'text-slate-700'}`}>
+                          {costing.actualCost > 0 ? `${costing.variance > 0 ? '+' : ''}Rs ${costing.variance.toLocaleString()}` : '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link to Quotations Dialog */}
+      <Dialog open={isLinkQuotationsOpen} onOpenChange={setIsLinkQuotationsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-slate-800">Link Costing Records to Quotations</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Select a costing record and link it to an existing quotation for better tracking and cost management.
+            </p>
+            
+            <div className="space-y-3">
+              {costings.map((costing) => (
+                <div key={costing.id} className="border rounded-lg p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                  <div>
+                    <h4 className="font-semibold text-slate-800">{costing.productName}</h4>
+                    <p className="text-sm text-slate-500">
+                      Est: Rs {costing.estimatedCost.toLocaleString()} | 
+                      Act: Rs {costing.actualCost > 0 ? costing.actualCost.toLocaleString() : '-'}
+                    </p>
+                    {costing.linkedQuotation && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        <FileText className="h-3 w-3 inline mr-1" />
+                        Linked to: {costing.linkedQuotation}
+                      </p>
+                    )}
+                  </div>
+                  <Select defaultValue={costing.linkedQuotation || "none"}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select quotation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Quotation</SelectItem>
+                      <SelectItem value="QT-2024-001">QT-2024-001</SelectItem>
+                      <SelectItem value="QT-2024-005">QT-2024-005</SelectItem>
+                      <SelectItem value="QT-2024-012">QT-2024-012</SelectItem>
+                      <SelectItem value="QT-2024-018">QT-2024-018</SelectItem>
+                      <SelectItem value="QT-2024-023">QT-2024-023</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setIsLinkQuotationsOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  toast.success('Quotation links updated successfully');
+                  setIsLinkQuotationsOpen(false);
+                }}
+              >
+                Save Links
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View All Invoices Dialog */}
+      <Dialog open={isViewAllInvoicesOpen} onOpenChange={setIsViewAllInvoicesOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1A2B4A]">All Invoice Records</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Invoices</p>
+                <p className="text-2xl font-bold text-[#1A2B4A]">248</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+                <p className="text-sm text-slate-600">Paid</p>
+                <p className="text-2xl font-bold text-emerald-700">186</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
+                <p className="text-sm text-slate-600">Pending</p>
+                <p className="text-2xl font-bold text-amber-700">62</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Value</p>
+                <p className="text-2xl font-bold text-slate-700">Rs 520M</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {mockInvoices.slice(0, 10).map((invoice) => (
+                <div key={invoice.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="font-semibold text-lg text-slate-800">{invoice.invoiceNumber}</h4>
+                      <p className="text-sm text-slate-600">{invoice.clientName}</p>
+                    </div>
+                    <Badge 
+                      variant={
+                        invoice.status === 'paid' ? 'default' : 
+                        invoice.status === 'pending' ? 'secondary' : 
+                        'destructive'
+                      }
+                      className={
+                        invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                        invoice.status === 'pending' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                        'bg-red-100 text-red-800 border-red-300'
+                      }
+                    >
+                      {invoice.status === 'paid' ? 'Paid' : 
+                       invoice.status === 'pending' ? 'Pending' : 
+                       'Overdue'}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-slate-500">Amount</p>
+                      <p className="font-semibold text-[#1A2B4A]">Rs {invoice.amount.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Date</p>
+                      <p className="font-semibold">{invoice.date}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Due Date</p>
+                      <p className="font-semibold">{invoice.dueDate}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center text-sm text-slate-500 mt-4">
+              Showing 10 of 248 invoices
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View All Expenses Dialog */}
+      <Dialog open={isViewAllExpensesOpen} onOpenChange={setIsViewAllExpensesOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-slate-800">All Expense Records</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="text-center p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Expenses</p>
+                <p className="text-2xl font-bold text-slate-700">
+                  Rs {expenses.reduce((sum, exp) => sum + exp.amount, 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+                <p className="text-sm text-slate-600">Paid Expenses</p>
+                <p className="text-2xl font-bold text-emerald-700">
+                  Rs {expenses.filter(e => e.status === 'paid').reduce((sum, exp) => sum + exp.amount, 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {expenseCategories.map((category) => {
+                const categoryExpenses = expenses.filter(exp => exp.category === category.name);
+                const categoryTotal = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                
+                if (categoryExpenses.length === 0) return null;
+                
+                return (
+                  <div key={category.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-lg text-slate-800">{category.name}</h4>
+                      <Badge variant="outline" className="text-sm">
+                        Total: Rs {categoryTotal.toLocaleString()}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {categoryExpenses.map((expense) => (
+                        <div key={expense.id} className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                          <div className="flex-1">
+                            <p className="font-medium text-slate-800">{expense.description}</p>
+                            <p className="text-xs text-slate-500">{expense.date}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-700">Rs {expense.amount.toLocaleString()}</p>
+                            <Badge variant={expense.status === 'paid' ? 'default' : 'secondary'} className="text-xs mt-1">
+                              {expense.status === 'paid' ? 'Paid' : 'Pending'}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View All Assets Dialog */}
+      <Dialog open={isViewAllAssetsOpen} onOpenChange={setIsViewAllAssetsOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-indigo-800">All Asset & Inventory Records</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Asset Value</p>
+                <p className="text-2xl font-bold text-indigo-700">
+                  Rs {assets.reduce((sum, asset) => sum + (asset.value * asset.quantity), 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl">
+                <p className="text-sm text-slate-600">Total Assets</p>
+                <p className="text-2xl font-bold text-emerald-700">{assets.length}</p>
+              </div>
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                <p className="text-sm text-slate-600">Active Assets</p>
+                <p className="text-2xl font-bold text-blue-700">
+                  {assets.filter(a => a.status === 'active').length}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {assetCategories.map((category) => {
+                const categoryAssets = assets.filter(asset => asset.category === category.name);
+                const categoryTotal = categoryAssets.reduce((sum, asset) => sum + (asset.value * asset.quantity), 0);
+                
+                if (categoryAssets.length === 0) return null;
+                
+                return (
+                  <div key={category.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-lg text-indigo-800">{category.name}</h4>
+                      <Badge variant="outline" className="text-sm">
+                        Total Value: Rs {categoryTotal.toLocaleString()}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {categoryAssets.map((asset) => (
+                        <div key={asset.id} className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                          <div className="flex-1">
+                            <p className="font-medium text-slate-800">{asset.name}</p>
+                            <p className="text-xs text-slate-500">
+                              Purchased: {asset.purchaseDate} | Qty: {asset.quantity}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-indigo-700">
+                              Rs {(asset.value * asset.quantity).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              Unit: Rs {asset.value.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

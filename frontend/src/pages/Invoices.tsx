@@ -58,6 +58,7 @@ export function Invoices() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showInvoiceDetailsDialog, setShowInvoiceDetailsDialog] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -150,7 +151,48 @@ export function Invoices() {
   };
 
   const handleExport = () => {
-    toast.success('Invoices exported successfully as CSV');
+    // Create CSV content with headers
+    const headers = [
+      'Invoice Number',
+      'Client',
+      'Date',
+      'Due Date',
+      'Amount',
+      'Status',
+      'Items Count'
+    ];
+
+    // Create rows from invoices
+    const rows = invoices.map(invoice => [
+      invoice.invoiceNumber,
+      invoice.client,
+      invoice.date,
+      invoice.dueDate,
+      invoice.amount,
+      invoice.status,
+      invoice.items?.length || 0
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Invoices_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Invoices exported successfully!');
   };
 
   const handleDownloadPDF = (invoice: Invoice) => {
@@ -224,10 +266,10 @@ export function Invoices() {
             <Button 
               variant="outline" 
               className="w-full md:w-auto"
-              onClick={handleExport}
+              onClick={() => setShowInvoiceDetailsDialog(true)}
             >
-              <Download className="h-4 w-4 mr-2" />
-              Export
+              <Eye className="h-4 w-4 mr-2" />
+              Invoice Details
             </Button>
           </div>
         </CardContent>
@@ -417,6 +459,107 @@ export function Invoices() {
           />
         </div>
       )}
+
+      {/* Invoice Details Dialog */}
+      <Dialog open={showInvoiceDetailsDialog} onOpenChange={setShowInvoiceDetailsDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>All Invoice Details</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                className="bg-[#1A2B4A] text-white hover:bg-[#0F1729] hover:text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Invoice No.</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Items</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                        No invoices found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    invoices.map((invoice) => (
+                      <TableRow key={invoice.id} className="hover:bg-slate-50 transition-colors">
+                        <TableCell>
+                          <span className="text-[#1A2B4A] font-semibold">{invoice.invoiceNumber}</span>
+                        </TableCell>
+                        <TableCell>{invoice.client}</TableCell>
+                        <TableCell className="text-slate-600">{invoice.date}</TableCell>
+                        <TableCell className="text-slate-600">{invoice.dueDate}</TableCell>
+                        <TableCell className="text-right font-semibold">
+                          Rs {invoice.amount.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={invoice.status} />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-sm font-medium text-slate-700">
+                            {invoice.items?.length || 0}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            
+            {/* Summary Section */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Total Invoices</p>
+                    <p className="text-2xl font-bold text-[#1A2B4A]">{invoices.length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Total Amount</p>
+                    <p className="text-2xl font-bold text-[#1A2B4A]">
+                      Rs {invoices.reduce((sum, inv) => sum + inv.amount, 0).toLocaleString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Average Amount</p>
+                    <p className="text-2xl font-bold text-[#1A2B4A]">
+                      Rs {invoices.length > 0 ? Math.round(invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length).toLocaleString() : '0'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
