@@ -821,42 +821,66 @@ export function Returns() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card className="text-white" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #1d4ed8)' }}>
+        <Card
+          className={`text-white cursor-pointer transition-transform hover:scale-105 ${statusFilter === 'all' ? 'ring-4 ring-blue-300' : ''}`}
+          style={{ background: 'linear-gradient(to bottom right, #3b82f6, #1d4ed8)' }}
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-4">
             <p className="text-white/80 text-sm">Total Returns</p>
             <p className="text-2xl font-bold mt-2">{stats.total}</p>
           </CardContent>
         </Card>
 
-        <Card className="text-white" style={{ background: 'linear-gradient(to bottom right, #f97316, #c2410c)' }}>
+        <Card
+          className={`text-white cursor-pointer transition-transform hover:scale-105 ${statusFilter === 'pending' ? 'ring-4 ring-orange-300' : ''}`}
+          style={{ background: 'linear-gradient(to bottom right, #f97316, #c2410c)' }}
+          onClick={() => setStatusFilter('pending')}
+        >
           <CardContent className="p-4">
             <p className="text-white/80 text-sm">Pending</p>
             <p className="text-2xl font-bold mt-2">{stats.pending}</p>
           </CardContent>
         </Card>
 
-        <Card className="text-white" style={{ background: 'linear-gradient(to bottom right, #22c55e, #15803d)' }}>
+        <Card
+          className={`text-white cursor-pointer transition-transform hover:scale-105 ${statusFilter === 'approved' ? 'ring-4 ring-green-300' : ''}`}
+          style={{ background: 'linear-gradient(to bottom right, #22c55e, #15803d)' }}
+          onClick={() => setStatusFilter('approved')}
+        >
           <CardContent className="p-4">
             <p className="text-white/80 text-sm">Approved</p>
             <p className="text-2xl font-bold mt-2">{stats.approved}</p>
           </CardContent>
         </Card>
 
-        <Card className="text-white" style={{ background: 'linear-gradient(to bottom right, #10b981, #059669)' }}>
+        <Card
+          className={`text-white cursor-pointer transition-transform hover:scale-105 ${statusFilter === 'completed' ? 'ring-4 ring-emerald-300' : ''}`}
+          style={{ background: 'linear-gradient(to bottom right, #10b981, #059669)' }}
+          onClick={() => setStatusFilter('completed')}
+        >
           <CardContent className="p-4">
             <p className="text-white/80 text-sm">Completed</p>
             <p className="text-2xl font-bold mt-2">{stats.completed}</p>
           </CardContent>
         </Card>
 
-        <Card className="text-white" style={{ background: 'linear-gradient(to bottom right, #ef4444, #b91c1c)' }}>
+        <Card
+          className={`text-white cursor-pointer transition-transform hover:scale-105 ${statusFilter === 'rejected' ? 'ring-4 ring-red-300' : ''}`}
+          style={{ background: 'linear-gradient(to bottom right, #ef4444, #b91c1c)' }}
+          onClick={() => setStatusFilter('rejected')}
+        >
           <CardContent className="p-4">
             <p className="text-white/80 text-sm">Rejected</p>
             <p className="text-2xl font-bold mt-2">{stats.rejected}</p>
           </CardContent>
         </Card>
 
-        <Card className="text-white" style={{ background: 'linear-gradient(to bottom right, #6366f1, #4338ca)' }}>
+        <Card
+          className="text-white cursor-pointer transition-transform hover:scale-105"
+          style={{ background: 'linear-gradient(to bottom right, #6366f1, #4338ca)' }}
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-4">
             <p className="text-white/80 text-sm">Total Refunds</p>
             <p className="text-xl font-bold mt-2">Rs {(stats.totalAmount / 1000000).toFixed(1)}M</p>

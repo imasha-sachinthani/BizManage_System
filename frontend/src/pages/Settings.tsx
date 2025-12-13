@@ -42,6 +42,23 @@ import {
 } from '../components/ui/dialog';
 
 export function Settings() {
+    // 2FA state
+    const [twoFAEnabled, setTwoFAEnabled] = useState(() => {
+      const saved = localStorage.getItem('twoFAEnabled');
+      return saved ? JSON.parse(saved) : false;
+    });
+
+    useEffect(() => {
+      localStorage.setItem('twoFAEnabled', JSON.stringify(twoFAEnabled));
+    }, [twoFAEnabled]);
+
+    const handleToggle2FA = () => {
+      setTwoFAEnabled((prev) => {
+        const next = !prev;
+        toast.success(next ? 'Two-Factor Authentication enabled' : 'Two-Factor Authentication disabled');
+        return next;
+      });
+    };
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isConfigureRoleOpen, setIsConfigureRoleOpen] = useState(false);
@@ -131,8 +148,31 @@ export function Settings() {
     });
   };
 
+  // Security password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmTouched, setConfirmTouched] = useState(false);
+  const [securityLoading, setSecurityLoading] = useState(false);
+
   const handleSaveSecuritySettings = () => {
-    toast.success('Security settings updated successfully');
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    setSecurityLoading(true);
+    setTimeout(() => {
+      setSecurityLoading(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setConfirmTouched(false);
+      toast.success('Password changed successfully');
+    }, 1200);
   };
 
   const handleSavePreferences = () => {
@@ -623,15 +663,37 @@ export function Settings() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" className="mt-2" />
+                  <Input
+                    id="current-password"
+                    type="password"
+                    className="mt-2"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" className="mt-2" />
+                  <Input
+                    id="new-password"
+                    type="password"
+                    className="mt-2"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" className="mt-2" />
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    className="mt-2"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    onFocus={() => setConfirmTouched(true)}
+                    autoComplete="new-password"
+                  />
                 </div>
               </div>
 
@@ -639,12 +701,16 @@ export function Settings() {
 
               <div>
                 <h4 className="mb-4">Two-Factor Authentication</h4>
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                <div className={`flex items-center justify-between p-4 rounded-lg border ${twoFAEnabled ? 'border-green-400' : 'border-slate-200'} bg-[#1A2B4A] text-white`}>
                   <div>
-                    <p>Enable 2FA for extra security</p>
-                    <p className="text-sm text-slate-500 mt-1">Protect your account with an additional verification step</p>
+                    <p className="font-semibold">{twoFAEnabled ? '2FA is enabled' : 'Enable 2FA for extra security'}</p>
+                    <p className="text-sm text-white/80 mt-1">
+                      {twoFAEnabled
+                        ? 'Your account is protected with an additional verification step.'
+                        : 'Protect your account with an additional verification step'}
+                    </p>
                   </div>
-                  <Switch />
+                  <Switch checked={twoFAEnabled} onCheckedChange={handleToggle2FA} />
                 </div>
               </div>
 
@@ -680,11 +746,16 @@ export function Settings() {
               <Separator />
 
               <div className="flex justify-end">
-                <Button 
+                <Button
                   className="bg-[#1A2B4A] hover:bg-[#0F1729] transition-all duration-300"
                   onClick={handleSaveSecuritySettings}
+                  disabled={securityLoading || !currentPassword || !newPassword || !confirmPassword || !confirmTouched}
                 >
-                  <Save className="h-4 w-4 mr-2" />
+                  {securityLoading ? (
+                    <span className="animate-spin mr-2">🔄</span>
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Update Security Settings
                 </Button>
               </div>

@@ -60,6 +60,32 @@ export function Tenders() {
   const [alerts, setAlerts] = useState<Array<{ type: string; message: string; count: number; id: string }>>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
+  // New tender form state
+  const [newTender, setNewTender] = useState({
+    title: '',
+    client: '',
+    description: '',
+    value: '',
+    currency: 'Rs',
+    type: 'tender',
+    publishDate: '',
+    deadline: '',
+    location: '',
+    bidSecurityRequired: false,
+    bidSecurityAmount: '',
+    bidSecurityType: 'bank_guarantee',
+    performanceSecurityRequired: false,
+    performanceSecurityAmount: '',
+    performanceSecurityType: 'bank_guarantee',
+    pca1Required: false,
+    pca1ExpiryDate: '',
+    contactPerson: '',
+    contactEmail: '',
+    contactPhone: '',
+    priority: 'medium',
+    notes: '',
+  });
+
   // Handle alert click to filter tenders
   const handleAlertClick = (alertId: string) => {
     const tenderList = document.getElementById('tender-list');
@@ -496,10 +522,10 @@ export function Tenders() {
                 <div class="field-label">Deadline</div>
                 <div class="field-value">${viewDetailsTender.deadline}</div>
               </div>
-              ${viewDetailsTender.awardDate ? `
+              ${viewDetailsTender.resultDate ? `
                 <div class="field">
                   <div class="field-label">Award Date</div>
-                  <div class="field-value">${viewDetailsTender.awardDate}</div>
+                  <div class="field-value">${viewDetailsTender.resultDate}</div>
                 </div>
               ` : ''}
             </div>
@@ -565,18 +591,18 @@ export function Tenders() {
             </div>
           ` : ''}
 
-          ${viewDetailsTender.pcaiRequired ? `
+          ${viewDetailsTender.pca1Required ? `
             <div class="section">
               <div class="section-title">PCAI Details</div>
               <div class="grid">
                 <div class="field">
                   <div class="field-label">Status</div>
-                  <div class="field-value">${viewDetailsTender.pcaiStatus?.toUpperCase() || 'PENDING'}</div>
+                  <div class="field-value">${viewDetailsTender.pca1Status?.toUpperCase() || 'PENDING'}</div>
                 </div>
-                ${viewDetailsTender.pcaiExpiryDate ? `
+                ${viewDetailsTender.pca1ExpiryDate ? `
                   <div class="field">
                     <div class="field-label">Expiry Date</div>
-                    <div class="field-value">${viewDetailsTender.pcaiExpiryDate}</div>
+                    <div class="field-value">${viewDetailsTender.pca1ExpiryDate}</div>
                   </div>
                 ` : ''}
               </div>
@@ -603,6 +629,87 @@ export function Tenders() {
 
   const handlePrintPDF = () => {
     handleDownloadPDF();
+  };
+
+  const handleCreateTender = () => {
+    // Validation
+    if (!newTender.title || !newTender.client || !newTender.value || !newTender.deadline) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Generate tender number
+    const tenderPrefix = newTender.type === 'tender' ? 'TDR' : 
+                         newTender.type === 'quotation' ? 'QTN' :
+                         newTender.type === 'rfq' ? 'RFQ' : 'BID';
+    const tenderNumber = `${tenderPrefix}-${new Date().getFullYear()}-${String(tenders.length + 1).padStart(3, '0')}`;
+
+    // Create new tender object
+    const tender: Tender = {
+      id: String(Date.now()),
+      tenderNumber,
+      title: newTender.title,
+      client: newTender.client,
+      description: newTender.description,
+      value: parseFloat(newTender.value),
+      currency: newTender.currency,
+      status: 'pending',
+      type: newTender.type as 'quotation' | 'tender' | 'rfq' | 'bid',
+      publishDate: newTender.publishDate || new Date().toISOString().split('T')[0],
+      deadline: newTender.deadline,
+      location: newTender.location,
+      bidSecurityRequired: newTender.bidSecurityRequired,
+      bidSecurityAmount: newTender.bidSecurityAmount ? parseFloat(newTender.bidSecurityAmount) : undefined,
+      bidSecurityType: newTender.bidSecurityAmount ? newTender.bidSecurityType as 'bank_guarantee' | 'cash' | 'bond' | 'letter_of_credit' : undefined,
+      bidSecurityStatus: newTender.bidSecurityAmount ? 'pending' : undefined,
+      performanceSecurityRequired: newTender.performanceSecurityRequired,
+      performanceSecurityAmount: newTender.performanceSecurityAmount ? parseFloat(newTender.performanceSecurityAmount) : undefined,
+      performanceSecurityType: newTender.performanceSecurityAmount ? newTender.performanceSecurityType as 'bank_guarantee' | 'cash' | 'bond' | 'letter_of_credit' : undefined,
+      performanceSecurityStatus: newTender.performanceSecurityAmount ? 'pending' : undefined,
+      pca1Required: newTender.pca1Required,
+      pca1ExpiryDate: newTender.pca1ExpiryDate || undefined,
+      pca1Status: newTender.pca1Required ? 'pending' : undefined,
+      technicalDocumentsRequired: [],
+      financialDocumentsRequired: [],
+      otherDocumentsRequired: [],
+      contactPerson: newTender.contactPerson,
+      contactEmail: newTender.contactEmail,
+      contactPhone: newTender.contactPhone,
+      priority: newTender.priority as 'low' | 'medium' | 'high' | 'urgent',
+      notes: newTender.notes,
+    };
+
+    // Add to tenders array
+    setTenders([tender, ...tenders]);
+    
+    // Reset form
+    setNewTender({
+      title: '',
+      client: '',
+      description: '',
+      value: '',
+      currency: 'Rs',
+      type: 'tender',
+      publishDate: '',
+      deadline: '',
+      location: '',
+      bidSecurityRequired: false,
+      bidSecurityAmount: '',
+      bidSecurityType: 'bank_guarantee',
+      performanceSecurityRequired: false,
+      performanceSecurityAmount: '',
+      performanceSecurityType: 'bank_guarantee',
+      pca1Required: false,
+      pca1ExpiryDate: '',
+      contactPerson: '',
+      contactEmail: '',
+      contactPhone: '',
+      priority: 'medium',
+      notes: '',
+    });
+
+    setCreateDialogOpen(false);
+    toast.success(`Tender ${tenderNumber} created successfully!`);
   };
 
   const getStatusIcon = (status: string) => {
@@ -693,10 +800,10 @@ export function Tenders() {
         <div className="flex gap-2">
           <Button 
             onClick={() => setCreateDialogOpen(true)}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-[#1A2B4A] hover:bg-[#0F1729] transition-all duration-300"
           >
             <Plus className="h-4 w-4 mr-2" />
-            New Tender
+            Add Tenders
           </Button>
         </div>
       </div>
@@ -1058,7 +1165,7 @@ export function Tenders() {
 
       {/* View Details Dialog */}
       <Dialog open={!!viewDetailsTender} onOpenChange={(open) => !open && setViewDetailsTender(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Tender Details - {viewDetailsTender?.tenderNumber}</span>
@@ -1083,18 +1190,12 @@ export function Tenders() {
               </div>
             </DialogTitle>
           </DialogHeader>
-          
           {viewDetailsTender && (
-            <div className="space-y-6 mt-4">
+            <div className="space-y-6 mt-4 flex-1">
               {/* Title and Status */}
               <div className="text-center p-6 bg-slate-50 rounded-lg">
                 <h3 className="text-2xl font-bold text-[#1A2B4A] mb-2">{viewDetailsTender.title}</h3>
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  {viewDetailsTender.status === 'awarded' && (
-                    <span className="px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold">
-                      AWARDED
-                    </span>
-                  )}
                   {viewDetailsTender.status === 'pending' && (
                     <span className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-semibold">
                       PENDING
@@ -1105,9 +1206,19 @@ export function Tenders() {
                       SUBMITTED
                     </span>
                   )}
-                  {viewDetailsTender.status === 'quotation' && (
-                    <span className="px-4 py-2 bg-purple-600 text-white rounded-full text-sm font-semibold">
-                      QUOTATION
+                  {viewDetailsTender.status === 'won' && (
+                    <span className="px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold">
+                      WON
+                    </span>
+                  )}
+                  {viewDetailsTender.status === 'lost' && (
+                    <span className="px-4 py-2 bg-red-600 text-white rounded-full text-sm font-semibold">
+                      LOST
+                    </span>
+                  )}
+                  {viewDetailsTender.status === 'cancelled' && (
+                    <span className="px-4 py-2 bg-gray-400 text-white rounded-full text-sm font-semibold">
+                      CANCELLED
                     </span>
                   )}
                   <span className="text-sm px-3 py-1 bg-slate-200 text-slate-700 rounded-full font-semibold">
@@ -1139,10 +1250,10 @@ export function Tenders() {
                     <p className="text-xs text-slate-500 mb-1">Deadline</p>
                     <p className="font-semibold">{viewDetailsTender.deadline}</p>
                   </div>
-                  {viewDetailsTender.awardDate && (
+                  {viewDetailsTender.resultDate && (
                     <div className="p-3 bg-green-50 rounded col-span-2">
                       <p className="text-xs text-slate-500 mb-1">Award Date</p>
-                      <p className="font-semibold text-green-700">{viewDetailsTender.awardDate}</p>
+                      <p className="font-semibold text-green-700">{viewDetailsTender.resultDate}</p>
                     </div>
                   )}
                 </div>
@@ -1211,18 +1322,18 @@ export function Tenders() {
               )}
 
               {/* PCAI Details */}
-              {viewDetailsTender.pcaiRequired && (
+              {viewDetailsTender.pca1Required && (
                 <div className="p-4 border rounded-lg bg-purple-50">
                   <h3 className="font-semibold text-lg mb-4 text-[#1A2B4A]">PCAI Details</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-3 bg-white rounded">
                       <p className="text-xs text-slate-500 mb-1">Status</p>
-                      <p className="font-semibold text-purple-700">{viewDetailsTender.pcaiStatus?.toUpperCase() || 'PENDING'}</p>
+                      <p className="font-semibold text-purple-700">{viewDetailsTender.pca1Status?.toUpperCase() || 'PENDING'}</p>
                     </div>
-                    {viewDetailsTender.pcaiExpiryDate && (
+                    {viewDetailsTender.pca1ExpiryDate && (
                       <div className="p-3 bg-white rounded">
                         <p className="text-xs text-slate-500 mb-1">Expiry Date</p>
-                        <p className="font-semibold">{viewDetailsTender.pcaiExpiryDate}</p>
+                        <p className="font-semibold">{viewDetailsTender.pca1ExpiryDate}</p>
                       </div>
                     )}
                   </div>
@@ -1230,6 +1341,356 @@ export function Tenders() {
               )}
             </div>
           )}
+          {/* Delete Button at bottom right */}
+          <div className="flex justify-end mt-6">
+            <Button
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (viewDetailsTender) {
+                  setTenders(tenders.filter(t => t.id !== viewDetailsTender.id));
+                  setViewDetailsTender(null);
+                  toast.success('Tender deleted successfully');
+                }
+              }}
+            >
+              Delete Tender
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add New Tender Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-[#1A2B4A] flex items-center gap-2">
+              <Plus className="h-6 w-6" />
+              Add New Tender
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-[#1A2B4A] border-b pb-2">Basic Information</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="title">Tender Title *</Label>
+                  <Input
+                    id="title"
+                    value={newTender.title}
+                    onChange={(e) => setNewTender({ ...newTender, title: e.target.value })}
+                    placeholder="Enter tender title"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="client">Client Name *</Label>
+                  <Input
+                    id="client"
+                    value={newTender.client}
+                    onChange={(e) => setNewTender({ ...newTender, client: e.target.value })}
+                    placeholder="Enter client name"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="type">Type *</Label>
+                  <Select value={newTender.type} onValueChange={(value) => setNewTender({ ...newTender, type: value })}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tender">Tender</SelectItem>
+                      <SelectItem value="quotation">Quotation</SelectItem>
+                      <SelectItem value="rfq">RFQ</SelectItem>
+                      <SelectItem value="bid">Bid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="value">Value *</Label>
+                  <Input
+                    id="value"
+                    type="number"
+                    value={newTender.value}
+                    onChange={(e) => setNewTender({ ...newTender, value: e.target.value })}
+                    placeholder="0.00"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select value={newTender.currency} onValueChange={(value) => setNewTender({ ...newTender, currency: value })}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Rs">Rs (LKR)</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="GBP">GBP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="publishDate">Publish Date</Label>
+                  <Input
+                    id="publishDate"
+                    type="date"
+                    value={newTender.publishDate}
+                    onChange={(e) => setNewTender({ ...newTender, publishDate: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="deadline">Deadline *</Label>
+                  <Input
+                    id="deadline"
+                    type="date"
+                    value={newTender.deadline}
+                    onChange={(e) => setNewTender({ ...newTender, deadline: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    value={newTender.location}
+                    onChange={(e) => setNewTender({ ...newTender, location: e.target.value })}
+                    placeholder="Enter location"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select value={newTender.priority} onValueChange={(value) => setNewTender({ ...newTender, priority: value })}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={newTender.description}
+                    onChange={(e) => setNewTender({ ...newTender, description: e.target.value })}
+                    placeholder="Enter tender description"
+                    className="mt-1"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-[#1A2B4A] border-b pb-2">Contact Information</h3>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="contactPerson">Contact Person</Label>
+                  <Input
+                    id="contactPerson"
+                    value={newTender.contactPerson}
+                    onChange={(e) => setNewTender({ ...newTender, contactPerson: e.target.value })}
+                    placeholder="Name"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="contactEmail">Contact Email</Label>
+                  <Input
+                    id="contactEmail"
+                    type="email"
+                    value={newTender.contactEmail}
+                    onChange={(e) => setNewTender({ ...newTender, contactEmail: e.target.value })}
+                    placeholder="email@example.com"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="contactPhone">Contact Phone</Label>
+                  <Input
+                    id="contactPhone"
+                    value={newTender.contactPhone}
+                    onChange={(e) => setNewTender({ ...newTender, contactPhone: e.target.value })}
+                    placeholder="+94 XX XXX XXXX"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bid Security */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-lg font-semibold text-[#1A2B4A]">Bid Security</h3>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="bidSecurityRequired"
+                    checked={newTender.bidSecurityRequired}
+                    onCheckedChange={(checked: boolean) => setNewTender({ ...newTender, bidSecurityRequired: checked })}
+                  />
+                  <Label htmlFor="bidSecurityRequired" className="cursor-pointer">Required</Label>
+                </div>
+              </div>
+
+              {newTender.bidSecurityRequired && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="bidSecurityAmount">Amount</Label>
+                    <Input
+                      id="bidSecurityAmount"
+                      type="number"
+                      value={newTender.bidSecurityAmount}
+                      onChange={(e) => setNewTender({ ...newTender, bidSecurityAmount: e.target.value })}
+                      placeholder="0.00"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="bidSecurityType">Type</Label>
+                    <Select value={newTender.bidSecurityType} onValueChange={(value) => setNewTender({ ...newTender, bidSecurityType: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bank_guarantee">Bank Guarantee</SelectItem>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bond">Bond</SelectItem>
+                        <SelectItem value="letter_of_credit">Letter of Credit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Performance Security */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-lg font-semibold text-[#1A2B4A]">Performance Security</h3>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="performanceSecurityRequired"
+                    checked={newTender.performanceSecurityRequired}
+                    onCheckedChange={(checked: boolean) => setNewTender({ ...newTender, performanceSecurityRequired: checked })}
+                  />
+                  <Label htmlFor="performanceSecurityRequired" className="cursor-pointer">Required</Label>
+                </div>
+              </div>
+
+              {newTender.performanceSecurityRequired && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="performanceSecurityAmount">Amount</Label>
+                    <Input
+                      id="performanceSecurityAmount"
+                      type="number"
+                      value={newTender.performanceSecurityAmount}
+                      onChange={(e) => setNewTender({ ...newTender, performanceSecurityAmount: e.target.value })}
+                      placeholder="0.00"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="performanceSecurityType">Type</Label>
+                    <Select value={newTender.performanceSecurityType} onValueChange={(value) => setNewTender({ ...newTender, performanceSecurityType: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bank_guarantee">Bank Guarantee</SelectItem>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bond">Bond</SelectItem>
+                        <SelectItem value="letter_of_credit">Letter of Credit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* PCAI */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-lg font-semibold text-[#1A2B4A]">PCAI Certificate</h3>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="pca1Required"
+                    checked={newTender.pca1Required}
+                    onCheckedChange={(checked: boolean) => setNewTender({ ...newTender, pca1Required: checked })}
+                  />
+                  <Label htmlFor="pca1Required" className="cursor-pointer">Required</Label>
+                </div>
+              </div>
+
+              {newTender.pca1Required && (
+                <div>
+                  <Label htmlFor="pca1ExpiryDate">PCAI Expiry Date</Label>
+                  <Input
+                    id="pca1ExpiryDate"
+                    type="date"
+                    value={newTender.pca1ExpiryDate}
+                    onChange={(e) => setNewTender({ ...newTender, pca1ExpiryDate: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                value={newTender.notes}
+                onChange={(e) => setNewTender({ ...newTender, notes: e.target.value })}
+                placeholder="Any additional information or notes"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTender}
+              className="bg-[#1A2B4A] hover:bg-[#0F1729] transition-all duration-300"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Submit
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

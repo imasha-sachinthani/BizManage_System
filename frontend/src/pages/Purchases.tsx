@@ -245,25 +245,37 @@ export function Purchases() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-lg border-0">
+        <Card
+          className="bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-lg border-0 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-6">
             <p className="text-white/80 text-sm">Total POs</p>
             <p className="text-3xl mt-2">{purchaseOrders.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg border-0">
+        <Card
+          className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg border-0 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => setStatusFilter('approved')}
+        >
           <CardContent className="p-6">
             <p className="text-white/80 text-sm">Approved</p>
             <p className="text-3xl mt-2">{purchaseOrders.filter(po => po.status === 'approved').length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-lg border-0">
+        <Card
+          className="bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-lg border-0 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => setStatusFilter('pending')}
+        >
           <CardContent className="p-6">
             <p className="text-white/80 text-sm">Pending</p>
             <p className="text-3xl mt-2">{purchaseOrders.filter(po => po.status === 'pending').length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-lg border-0">
+        <Card
+          className="bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-lg border-0 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-6">
             <p className="text-white/80 text-sm">Total Value</p>
             <p className="text-3xl mt-2">Rs {(purchaseOrders.reduce((sum, po) => sum + po.amount, 0) / 1000000).toFixed(1)}M</p>
