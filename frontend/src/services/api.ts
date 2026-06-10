@@ -1,8 +1,11 @@
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api';
+// Prefer VITE_API_URL, otherwise default to the backend dev server used by this repo
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://127.0.0.1:4000/api';
 
-// Debug: Log the API base URL
+// Debug: Log the API base URL and environment for easier troubleshooting
 console.log('🔧 API Base URL:', API_BASE_URL);
-console.log('🔧 Environment:', (import.meta as any).env);
+console.log('🔧 Vite env:', (import.meta as any).env);
+
+import { authService } from './auth';
 
 // Generic API response type
 export interface ApiResponse<T = any> {
@@ -34,6 +37,15 @@ export class ApiError extends Error {
 async function handleResponse<T>(response: Response): Promise<T> {
   const data: ApiResponse<T> = await response.json();
 
+  if (response.status === 401) {
+    try {
+      authService.logout();
+    } catch (e) {
+      // ignore
+    }
+    throw new ApiError('Unauthorized', 401);
+  }
+
   if (!response.ok) {
     throw new ApiError(
       data.error || data.message || 'An error occurred',
@@ -55,7 +67,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 // Helper function to get auth headers
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('token');
+  const token = authService.getToken();
   return {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),

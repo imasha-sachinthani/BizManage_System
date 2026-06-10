@@ -5,6 +5,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
 
 // Import routes
 // import authRoutes from './routes/auth';
@@ -90,6 +91,15 @@ if (process.env.NODE_ENV === 'production') {
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded files (avatars, company logos, etc.) with CORS headers
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+}, express.static(path.join(__dirname, '..', '..', 'uploads')));
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -254,13 +264,14 @@ const gracefulShutdown = async (signal: string) => {
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Start server
-const server = app.listen(Number(PORT), '0.0.0.0', () => {
+// Start server — bind to HOST env or localhost to avoid permission issues on some systems
+const HOST = process.env.HOST || '127.0.0.1';
+const server = app.listen(Number(PORT), HOST, () => {
   console.log(`🚀 BizManage ERP Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
-  console.log(`📚 API Info: http://localhost:${PORT}/api`);
+  console.log(`🏥 Health Check: http://${HOST}:${PORT}/health`);
+  console.log(`📚 API Info: http://${HOST}:${PORT}/api`);
 });
 
 // Handle server errors

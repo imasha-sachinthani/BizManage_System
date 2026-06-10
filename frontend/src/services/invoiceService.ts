@@ -101,18 +101,19 @@ function transformBackendInvoice(backendInvoice: BackendInvoice): Invoice {
   return {
     id: backendInvoice.id,
     invoiceNumber: backendInvoice.invoiceNumber,
-    client: backendInvoice.client.name,
-    amount: backendInvoice.totalAmount,
+    client: typeof backendInvoice.client === 'string' ? backendInvoice.client : backendInvoice.client?.name || '',
+    // Prisma Decimal values may be serialized as strings; coerce to numbers for frontend
+    amount: Number((backendInvoice as any).totalAmount ?? (backendInvoice as any).amount ?? 0),
     status: transformStatus(backendInvoice.status),
     date: new Date(backendInvoice.invoiceDate).toISOString().split('T')[0],
     dueDate: new Date(backendInvoice.dueDate).toISOString().split('T')[0],
-    items: backendInvoice.items.map(item => ({
+    items: (backendInvoice.items || []).map(item => ({
       id: item.id,
       description: item.description,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      vatRate: 15, // Default VAT rate - could be calculated from backend
-      total: item.totalPrice,
+      quantity: Number((item as any).quantity ?? 0),
+      unitPrice: Number((item as any).unitPrice ?? (item as any).unitPrice ?? 0),
+      vatRate: Number((item as any).taxRate ?? 15), // Default VAT rate if missing
+      total: Number((item as any).totalPrice ?? (item as any).total ?? 0),
     }))
   };
 }

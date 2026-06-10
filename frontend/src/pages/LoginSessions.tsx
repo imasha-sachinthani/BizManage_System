@@ -40,8 +40,25 @@ import {
 } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
+import { authService } from '../services/auth';
 
 export function LoginSessions() {
+  const userHasAccess = authService.hasPermission('users', 'read');
+
+  if (!userHasAccess) {
+    return (
+      <div style={{ padding: 24 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>You do not have permission to view login sessions.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { authService } from '../services/auth';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -85,7 +86,11 @@ export function DesktopSidebar({ currentPage, onNavigate, onLogout }: DesktopSid
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.id;
-          
+          // Hide Login Sessions for users without users:read
+          if (item.id === 'login-sessions' && !authService.hasPermission('users', 'read')) {
+            return null;
+          }
+
           return (
             <button
               key={item.id}
@@ -107,29 +112,47 @@ export function DesktopSidebar({ currentPage, onNavigate, onLogout }: DesktopSid
 
       {/* User Profile */}
       <div className="p-4 space-y-2">
-        <div className={`flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer ${collapsed ? 'justify-center' : ''}`}>
-          <Avatar className="h-10 w-10 border-2 border-[#D4AF37]">
-            <AvatarFallback className="bg-gradient-to-br from-[#D4AF37] to-[#F4E5B0] text-[#1A2B4A]">
-              RP
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm truncate">Ravindu Perera</p>
-              <p className="text-xs text-white/60 truncate">Admin</p>
-            </div>
-          )}
-        </div>
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
-          >
-            <LogOut className="h-4 w-4 flex-shrink-0" />
-            {!collapsed && <span className="text-sm">Logout</span>}
-          </button>
+        <ProfileBlock collapsed={collapsed} onNavigate={onNavigate} onLogout={onLogout} />
+      </div>
+    </div>
+  );
+}
+
+function ProfileBlock({ collapsed, onNavigate, onLogout }: { collapsed: boolean; onNavigate: (page: string) => void; onLogout?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const user = authService.getUser();
+  const roleLabel = user?.role || 'Guest';
+
+  // Hide Login Sessions menu item for users without users:read
+  // Note: Menu filtering handled in parent; here we only render profile block
+
+  return (
+    <div>
+      <div
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer ${collapsed ? 'justify-center' : ''}`}
+      >
+        <Avatar className="h-10 w-10 border-2 border-[#D4AF37]">
+          <AvatarFallback className="bg-gradient-to-br from-[#D4AF37] to-[#F4E5B0] text-[#1A2B4A]">{(user?.name || 'U').split(' ').map(n=>n[0]).slice(0,2).join('')}</AvatarFallback>
+        </Avatar>
+        {!collapsed && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm truncate">{user?.name || 'Guest User'}</p>
+            <p className="text-xs text-white/60 truncate">{roleLabel}</p>
+          </div>
         )}
       </div>
+
+      {open && (
+        <div className="mt-2 p-3 bg-white/5 rounded-xl">
+          <p className="text-sm font-semibold">{user?.name || 'Guest User'}</p>
+          <p className="text-xs text-white/60 mb-2">{roleLabel}</p>
+          <div className="flex gap-2">
+            <button onClick={() => onNavigate('profile')} className="px-3 py-1 rounded bg-white/10">View Profile</button>
+            {onLogout && <button onClick={onLogout} className="px-3 py-1 rounded bg-red-600 text-white">Logout</button>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

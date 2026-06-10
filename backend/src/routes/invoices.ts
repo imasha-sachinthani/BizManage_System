@@ -9,13 +9,12 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Apply authentication and company check to all routes
-// Temporarily disabled for testing
-// router.use(authenticateToken);
-// router.use(checkCompany);
+router.use(authenticateToken);
+router.use(checkCompany);
 
 // Get all invoices
 router.get('/',
-  // checkPermission('invoices', 'read'),
+  checkPermission('invoices', 'read'),
   async (req, res, next) => {
     try {
       const { 

@@ -24,6 +24,7 @@ export interface User {
   permissions: string[];
   lastLogin?: string;
   createdAt: string;
+  avatar?: string | null;
 }
 
 export interface AuthResponse {
@@ -122,11 +123,35 @@ class AuthService {
       }
 
       const result = await response.json();
+      // Update local cache
+      localStorage.setItem(this.USER_KEY, JSON.stringify(result.data.user));
       return result.data.user;
     } catch (error) {
       this.logout();
       return null;
     }
+  }
+
+  async updateProfile(formData: FormData): Promise<User> {
+    const token = this.getToken();
+    if (!token) throw new Error('Not authenticated');
+
+    const response = await fetch(`${API_URL}/auth/me`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update profile');
+    }
+
+    const result = await response.json();
+    const updatedUser = result.data.user as User;
+    localStorage.setItem(this.USER_KEY, JSON.stringify(updatedUser));
+    return updatedUser;
   }
 
   async refreshToken(): Promise<boolean> {

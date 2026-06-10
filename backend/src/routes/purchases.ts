@@ -7,6 +7,10 @@ import { NotFoundError } from '../types/errors';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Apply authentication and company check to all routes
+router.use(authenticateToken);
+router.use(checkCompany);
+
 // Get all purchases
 router.get('/', async (req: AuthRequest, res, next) => {
   try {

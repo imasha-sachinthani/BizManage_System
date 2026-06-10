@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
@@ -7,6 +10,19 @@ import { authLimiter } from '../middleware/rateLimiter';
 import { AuthenticationError, ConflictError, ValidationErrorClass } from '../types/errors';
 
 const router = Router();
+// Multer storage for avatar uploads
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dest = path.join(process.cwd(), 'uploads', 'avatars');
+    fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname.replace(/\s+/g, '-')}`;
+    cb(null, unique);
+  },
+});
+const upload = multer({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 } });
 const prisma = new PrismaClient();
 
 // Apply rate limiting to all auth routes
@@ -16,19 +32,57 @@ router.use(authLimiter);
 router.post('/login', async (req, res, next) => {
   try {
     console.log('Login attempt:', req.body);
-    
+
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: String(email).toLowerCase() },
+      include: {
+        role: {
+          include: { permissions: true },
+        },
+        company: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Build permissions array
+    const permissions = (user.role?.permissions || []).map(p => `${p.module}:${p.action}`);
+
+    // Sign JWT
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role?.name || 'USER',
+      companyId: user.companyId,
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET || 'dev-secret', { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+
     res.json({
       success: true,
       message: 'Login successful',
       data: {
-        token: 'fake-jwt-token-for-testing',
+        token,
         user: {
-          id: '1',
-          email: 'admin@bizmanage.lk',
-          name: 'System Administrator',
-          role: 'DIRECTOR',
-          company: null,
-          permissions: ['clients:read', 'clients:write'],
+          id: user.id,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+          role: user.role?.name || 'USER',
+          company: user.company ? { id: user.company.id, name: user.company.name } : null,
+          permissions,
+          avatar: user.avatar || null,
         },
       },
     });
@@ -116,6 +170,7 @@ router.post('/register', validateRequest(registerValidation), async (req, res, n
             id: user.company.id,
             name: user.company.name,
           } : null,
+          avatar: user.avatar || null,
         },
       },
     });
@@ -190,6 +245,7 @@ router.post('/refresh', async (req, res, next) => {
             name: user.company.name,
           } : null,
           permissions: user.role.permissions.map(p => `${p.module}:${p.action}`),
+          avatar: user.avatar || null,
         },
       },
     });
@@ -246,8 +302,63 @@ router.get('/me', async (req, res, next) => {
             name: user.company.name,
           } : null,
           permissions: user.role.permissions.map(p => `${p.module}:${p.action}`),
+          avatar: user.avatar || null,
           lastLogin: user.lastLogin,
           createdAt: user.createdAt,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update current user profile (supports avatar upload)
+router.put('/me', upload.single('avatar'), async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) throw new Error('Authentication token required');
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret') as any;
+    const userId = decoded.userId;
+
+    const { firstName, lastName, phone } = req.body;
+
+    const updateData: any = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (phone !== undefined) updateData.phone = phone;
+    if (req.file) {
+      const avatarPath = path.join('uploads', 'avatars', req.file.filename).replace(/\\/g, '/');
+
+      // Delete old avatar if exists
+      const existing = await prisma.user.findUnique({ where: { id: userId } });
+      if (existing?.avatar) {
+        const oldPath = path.join(process.cwd(), existing.avatar);
+        fs.unlink(oldPath, (err) => { /* ignore errors */ });
+      }
+
+      updateData.avatar = avatarPath;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      include: { role: { include: { permissions: true } }, company: true },
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: {
+          id: updated.id,
+          email: updated.email,
+          name: `${updated.firstName} ${updated.lastName}`,
+          role: updated.role?.name || 'USER',
+          company: updated.company ? { id: updated.company.id, name: updated.company.name } : null,
+          permissions: (updated.role?.permissions || []).map(p => `${p.module}:${p.action}`),
+          avatar: updated.avatar || null,
         },
       },
     });

@@ -9,13 +9,12 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Apply authentication and company check to all routes
-// Temporarily disabled for testing
-// router.use(authenticateToken);
-// router.use(checkCompany);
+router.use(authenticateToken);
+router.use(checkCompany);
 
 // Get all clients
 router.get('/', 
-  // checkPermission('clients', 'read'),
+  checkPermission('clients', 'read'),
   async (req: AuthRequest, res, next) => {
     try {
       const { page = 1, limit = 10, search, status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
@@ -159,7 +158,7 @@ router.get('/:id',
 
 // Create new client
 router.post('/',
-  // checkPermission('clients', 'create'), // Temporarily disabled for testing
+  checkPermission('clients', 'create'),
   validateRequest(clientValidation),
   async (req: AuthRequest, res, next) => {
     try {

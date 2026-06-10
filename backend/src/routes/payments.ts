@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { checkCompany } from '../middleware/permissions';
 import { NotFoundError } from '../types/errors';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// Apply authentication and company check to all routes
+router.use(authenticateToken);
+router.use(checkCompany);
 
 // Get all payments
 router.get('/', async (req: AuthRequest, res, next) => {

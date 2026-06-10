@@ -10,6 +10,7 @@ import { Reports } from './pages/Reports';
 import { Payments } from './pages/Payments';
 import { Tenders } from './pages/Tenders';
 import { LoginSessions } from './pages/LoginSessions';
+import Profile from './pages/Profile';
 import Cusdecs from './pages/Cusdec';
 import { Clients } from './pages/Clients';
 import { Companies } from './pages/Companies';
@@ -98,6 +99,8 @@ export default function App() {
         return 'Company Management';
       case 'settings':
         return 'Settings';
+      case 'profile':
+        return 'Profile';
       default:
         return 'Dashboard';
     }
@@ -127,6 +130,8 @@ export default function App() {
         return <Companies />;
       case 'settings':
         return <Settings />;
+      case 'profile':
+        return <Profile />;
       default:
         return <Dashboard />;
     }
